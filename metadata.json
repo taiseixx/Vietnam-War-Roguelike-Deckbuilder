@@ -1,0 +1,6 @@
+{
+  "name": "Vietnam War Roguelike Deckbuilder",
+  "description": "An immersive procedural roguelike deckbuilder and auto-battler set during the Vietnam War, featuring a vertical 5-line battlefield, accurate tactical historical card units, orders, strategic countermeasures, and a dynamic campaign map.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

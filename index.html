@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vanguard Overlord: Vietnam War Roguelike Deckbuilder</title>
+    
+    <!-- PWA Installability Headers -->
+    <meta name="theme-color" content="#0a0908" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Vanguard Overlord" />
+    
+    <!-- Embedded Manifest Blob JSON -->
+    <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Vanguard%20Overlord%3A%20Vietnam%22%2C%22short_name%22%3A%22Vanguard%22%2C%22theme_color%22%3A%22%230a0908%22%2C%22background_color%22%3A%22%230a0908%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22start_url%22%3A%22.%22%7D" />
+
+    <!-- Inline Service Worker Registration logic -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          const swCode = `
+            const CACHE_NAME = 'vanguard-overlord-v1';
+            const ASSETS = [
+              '/',
+              '/index.html',
+              '/src/main.tsx',
+              '/src/App.tsx',
+              '/src/index.css'
+            ];
+            self.addEventListener('install', (e) => {
+              e.waitUntil(
+                caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+              );
+            });
+            self.addEventListener('fetch', (event) => {
+              event.respondWith(
+                caches.match(event.request).then((response) => response || fetch(event.request))
+              );
+            });
+          `;
+          const blob = new Blob([swCode], { type: 'application/javascript' });
+          const swUrl = URL.createObjectURL(blob);
+          navigator.serviceWorker.register(swUrl)
+            .then(() => console.log('PWA Service Worker online.'))
+            .catch((err) => console.warn('Service worker offline:', err));
+        });
+      }
+    </script>
+  </head>
+  <body class="bg-stone-950">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

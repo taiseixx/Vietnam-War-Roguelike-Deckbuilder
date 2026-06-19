@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Oswald", "Bebas Neue", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Courier Prime", "Special Elite", ui-monospace, SFMono-Regular, monospace;
+  --font-heading: "Bebas Neue", sans-serif;
+  --font-typewriter: "Special Elite", "Courier Prime", monospace;
+  --font-display: "Bebas Neue", "Oswald", sans-serif;
+}
+
+/* Base styling updates */
+body {
+  font-family: var(--font-mono);
+  background-color: #0c0a09;
+}
+
+h1, h2, h3, h4, .font-heading {
+  font-family: var(--font-display);
+  letter-spacing: 0.05em;
+}
+
+.font-typewriter {
+  font-family: var(--font-typewriter);
+}
+
+/* Custom scrollbar to look like distressed military console */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(12, 10, 9, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(217, 119, 6, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 119, 6, 0.7);
+}
