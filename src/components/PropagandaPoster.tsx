@@ -1,5 +1,114 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ArtTemplateConfig } from '../types';
+import { getOverlayIconElement } from '../utils/artRegistry';
+
+const DEFAULT_FALLBACK_CONFIG: ArtTemplateConfig = {
+  templateType: 'infantry',
+  primaryColor: '#3E4E30',
+  secondaryColor: '#222222',
+};
+
+function isValidHexColor(color?: string): boolean {
+  if (!color) return false;
+  return /^#([0-9A-F]{3}){1,2}$/i.test(color);
+}
+
+export function getSanitizedArtConfig(config?: ArtTemplateConfig, defaultPrimary?: string): ArtTemplateConfig {
+  if (!config) return { ...DEFAULT_FALLBACK_CONFIG, primaryColor: defaultPrimary || DEFAULT_FALLBACK_CONFIG.primaryColor };
+  return {
+    templateType: config.templateType || 'infantry',
+    primaryColor: isValidHexColor(config.primaryColor) ? config.primaryColor : (defaultPrimary || DEFAULT_FALLBACK_CONFIG.primaryColor),
+    secondaryColor: isValidHexColor(config.secondaryColor) ? config.secondaryColor : DEFAULT_FALLBACK_CONFIG.secondaryColor,
+    overlayIconId: config.overlayIconId
+  };
+}
+
+interface DynamicTemplateProps {
+  config: ArtTemplateConfig;
+  bgAccent: string;
+}
+
+export const DynamicSVGPoster: React.FC<DynamicTemplateProps> = React.memo(({ config, bgAccent }) => {
+  const primaryColor = config.primaryColor!;
+  
+  const templateGraphics = useMemo(() => {
+    switch (config.templateType) {
+      case 'infantry':
+        return (
+          <>
+            <rect width="100" height="70" fill={primaryColor} />
+            <path d="M 20,70 L 30,45 A 5,5 0 0 1 40,45 L 45,70" fill="#222" opacity="0.6" />
+            <path d="M 60,70 L 70,45 A 5,5 0 0 1 80,45 L 85,70" fill="#222" opacity="0.6" />
+            <path d="M 40,70 L 45,35 A 6,6 0 0 1 55,35 L 60,70" fill="#111" />
+          </>
+        );
+      case 'tank':
+        return (
+          <>
+            <rect width="100" height="70" fill={primaryColor} />
+            <polygon points="20,55 30,45 70,45 80,55 75,65 25,65" fill="#1A1C1A" />
+            <rect x="35" y="35" width="40" height="10" fill="#222" />
+            <line x1="75" y1="40" x2="95" y2="40" stroke="#111" strokeWidth="3" />
+            <circle cx="35" cy="60" r="5" fill="#111" />
+            <circle cx="50" cy="60" r="5" fill="#111" />
+            <circle cx="65" cy="60" r="5" fill="#111" />
+          </>
+        );
+      case 'aircraft':
+        return (
+          <>
+            <rect width="100" height="70" fill={primaryColor} />
+            <path d="M 15,55 L 75,25 L 85,26 L 45,62 M 75,25 L 55,20 L 50,12" fill="#E5E5E5" opacity="0.3" />
+            <path d="M 40,40 L 55,20 L 60,35" fill={bgAccent} opacity="0.5" />
+            <polygon points="15,55 5,58 10,54 3,51 15,55" fill={bgAccent} opacity="0.8" />
+          </>
+        );
+      case 'artillery':
+        return (
+          <>
+            <rect width="100" height="70" fill={primaryColor} />
+            <line x1="30" y1="65" x2="80" y2="15" stroke="#1A2413" strokeWidth="6" strokeLinecap="round" />
+            <line x1="30" y1="65" x2="80" y2="15" stroke="#111" strokeWidth="2" />
+            <circle cx="30" cy="60" r="12" fill="#1A2413" />
+            <circle cx="30" cy="60" r="6" fill={bgAccent} opacity="0.5" />
+            <circle cx="80" cy="15" r="8" fill="none" stroke={bgAccent} strokeWidth="1.5" strokeDasharray="2,2" />
+          </>
+        );
+      case 'order':
+        return (
+          <>
+            <rect width="100" height="70" fill={primaryColor} />
+            <polygon points="50,10 63,45 25,23 75,23 37,45" fill={bgAccent} opacity="0.2" />
+            <circle cx="50" cy="35" r="20" fill="none" stroke={bgAccent} strokeWidth="1" strokeDasharray="4,4" />
+          </>
+        );
+      case 'countermeasure':
+        return (
+          <>
+            <rect width="100" height="70" fill={primaryColor} />
+            <rect x="5" y="5" width="90" height="60" fill="none" stroke={bgAccent} strokeWidth="2" strokeDasharray="6,4" />
+            <line x1="10" y1="10" x2="90" y2="60" stroke={bgAccent} strokeWidth="1" opacity="0.3" />
+            <line x1="90" y1="10" x2="10" y2="60" stroke={bgAccent} strokeWidth="1" opacity="0.3" />
+          </>
+        );
+      default:
+        return <rect width="100" height="70" fill={primaryColor} />;
+    }
+  }, [config.templateType, primaryColor, bgAccent]);
+
+  const overlayGraphics = useMemo(() => {
+    return getOverlayIconElement(config.overlayIconId, bgAccent, primaryColor);
+  }, [config.overlayIconId, bgAccent, primaryColor]);
+
+  return (
+    <>
+      {templateGraphics}
+      {overlayGraphics}
+    </>
+  );
+});
+
+DynamicSVGPoster.displayName = 'DynamicSVGPoster';
 
 interface PropagandaPosterProps {
   keyword: string;
@@ -21,92 +130,12 @@ export const PropagandaPoster: React.FC<PropagandaPosterProps> = ({
   const bgAccent = isEastern ? '#F9C80E' : '#CBBF99'; // Vintage Yellow vs Khaki
   const textColor = isEastern ? '#F9C80E' : '#E8E5DA';
 
-  const renderIcon = (icon?: string) => {
-    switch (icon) {
-      case 'star': return <polygon points="50,30 52,36 58,36 53,39 55,45 50,42 45,45 47,39 42,36 48,36" fill={bgAccent} />;
-      case 'crosshairs': return <g stroke={bgAccent} strokeWidth="1"><circle cx="50" cy="35" r="10" fill="none" /><line x1="40" y1="35" x2="60" y2="35" /><line x1="50" y1="25" x2="50" y2="45" /></g>;
-      case 'shield': return <g stroke={bgAccent} strokeWidth="2" fill="none"><polygon points="40,25 60,25 60,35 50,45 40,35" /></g>;
-      case 'wings': return <path d="M 30,35 Q 40,25 50,35 Q 60,25 70,35 Q 60,40 50,38 Q 40,40 30,35" fill="none" stroke={bgAccent} strokeWidth="2" />;
-      case 'bomb': return <g fill={bgAccent}><circle cx="50" cy="38" r="7" /><rect x="48" y="30" width="4" height="4" /><path d="M 50,30 Q 55,25 55,20" fill="none" stroke={bgAccent} strokeWidth="1" strokeDasharray="1,1" /></g>;
-      case 'skull': return <g fill={bgAccent}><circle cx="50" cy="33" r="6" /><rect x="47" y="38" width="6" height="4" /><circle cx="47" cy="33" r="1.5" fill={primaryColor} /><circle cx="53" cy="33" r="1.5" fill={primaryColor} /></g>;
-      case 'radio': return <g stroke={bgAccent} strokeWidth="1" fill="none"><rect x="42" y="30" width="16" height="15" rx="1" /><circle cx="46" cy="38" r="2" /><line x1="44" y1="30" x2="44" y2="20" /><path d="M 40,15 A 8,8 0 0 1 48,15 M 38,12 A 12,12 0 0 1 50,12" strokeWidth="0.5" /></g>;
-      case 'flag': return <g stroke={bgAccent} strokeWidth="1.5"><line x1="40" y1="45" x2="40" y2="25" /><polygon points="40,25 60,30 40,35" fill={bgAccent} /></g>;
-    }
-    return null;
-  };
-
-  const renderTemplateArt = (config: ArtTemplateConfig) => {
-    switch (config.template) {
-      case 'infantry':
-        return (
-          <>
-            <rect width="100" height="70" fill={primaryColor} />
-            <path d="M 20,70 L 30,45 A 5,5 0 0 1 40,45 L 45,70" fill="#222" opacity="0.6" />
-            <path d="M 60,70 L 70,45 A 5,5 0 0 1 80,45 L 85,70" fill="#222" opacity="0.6" />
-            <path d="M 40,70 L 45,35 A 6,6 0 0 1 55,35 L 60,70" fill="#111" />
-            {renderIcon(config.overlayIcon)}
-          </>
-        );
-      case 'tank':
-        return (
-          <>
-            <rect width="100" height="70" fill={primaryColor} />
-            <polygon points="20,55 30,45 70,45 80,55 75,65 25,65" fill="#1A1C1A" />
-            <rect x="35" y="35" width="40" height="10" fill="#222" />
-            <line x1="75" y1="40" x2="95" y2="40" stroke="#111" strokeWidth="3" />
-            <circle cx="35" cy="60" r="5" fill="#111" />
-            <circle cx="50" cy="60" r="5" fill="#111" />
-            <circle cx="65" cy="60" r="5" fill="#111" />
-            {renderIcon(config.overlayIcon)}
-          </>
-        );
-      case 'aircraft':
-        return (
-          <>
-            <rect width="100" height="70" fill={primaryColor} />
-            <path d="M 15,55 L 75,25 L 85,26 L 45,62 M 75,25 L 55,20 L 50,12" fill="#E5E5E5" opacity="0.3" />
-            <path d="M 40,40 L 55,20 L 60,35" fill={bgAccent} opacity="0.5" />
-            <polygon points="15,55 5,58 10,54 3,51 15,55" fill={bgAccent} opacity="0.8" />
-            {renderIcon(config.overlayIcon)}
-          </>
-        );
-      case 'artillery':
-        return (
-          <>
-            <rect width="100" height="70" fill={primaryColor} />
-            <line x1="30" y1="65" x2="80" y2="15" stroke="#1A2413" strokeWidth="6" strokeLinecap="round" />
-            <line x1="30" y1="65" x2="80" y2="15" stroke="#111" strokeWidth="2" />
-            <circle cx="30" cy="60" r="12" fill="#1A2413" />
-            <circle cx="30" cy="60" r="6" fill={bgAccent} opacity="0.5" />
-            <circle cx="80" cy="15" r="8" fill="none" stroke={bgAccent} strokeWidth="1.5" strokeDasharray="2,2" />
-            {renderIcon(config.overlayIcon)}
-          </>
-        );
-      case 'order':
-        return (
-          <>
-            <rect width="100" height="70" fill={primaryColor} />
-            <polygon points="50,10 63,45 25,23 75,23 37,45" fill={bgAccent} opacity="0.2" />
-            <circle cx="50" cy="35" r="20" fill="none" stroke={bgAccent} strokeWidth="1" strokeDasharray="4,4" />
-            {renderIcon(config.overlayIcon)}
-          </>
-        );
-      case 'countermeasure':
-        return (
-          <>
-            <rect width="100" height="70" fill={primaryColor} />
-            <rect x="5" y="5" width="90" height="60" fill="none" stroke={bgAccent} strokeWidth="2" strokeDasharray="6,4" />
-            <line x1="10" y1="10" x2="90" y2="60" stroke={bgAccent} strokeWidth="1" opacity="0.3" />
-            <line x1="90" y1="10" x2="10" y2="60" stroke={bgAccent} strokeWidth="1" opacity="0.3" />
-            {renderIcon(config.overlayIcon)}
-          </>
-        );
-    }
-  };
-
   // Procedural SVG artwork selection based on keyword
   const renderArt = () => {
-    if (artConfig) return renderTemplateArt(artConfig);
+    if (artConfig) {
+      const sanitizedConfig = getSanitizedArtConfig(artConfig, primaryColor);
+      return <DynamicSVGPoster config={sanitizedConfig} bgAccent={bgAccent} />;
+    }
 
     switch (keyword) {
       // ----------------- NVA / VC UNITS -----------------

@@ -639,8 +639,8 @@ export const CARD_DATABASE: Card[] = [
     artworkKeyword: 'use_template',
     isArmored: true,
     artConfig: {
-      template: 'tank',
-      overlayIcon: 'star'
+      templateType: 'tank',
+      overlayIconId: 'star'
     }
   }
 ];

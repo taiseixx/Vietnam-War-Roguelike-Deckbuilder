@@ -42,8 +42,10 @@ export type DeployEffect = Effect<
 >;
 
 export interface ArtTemplateConfig {
-  template: 'infantry' | 'tank' | 'aircraft' | 'artillery' | 'order' | 'countermeasure';
-  overlayIcon?: 'star' | 'crosshairs' | 'shield' | 'wings' | 'bomb' | 'skull' | 'radio' | 'flag' | 'none';
+  templateType: 'infantry' | 'tank' | 'aircraft' | 'artillery' | 'order' | 'countermeasure';
+  overlayIconId?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }
 
 export interface Card {

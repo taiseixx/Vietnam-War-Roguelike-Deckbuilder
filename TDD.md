@@ -370,8 +370,10 @@ textColor   = isEastern ? '#F9C80E' : '#E8E5DA';  // Text contrast
 Card mới sinh ra ở Gói 2+ không cần viết thêm case SVG. Chỉ cần nhúng config:
 ```typescript
 interface ArtTemplateConfig {
-  template: 'infantry' | 'tank' | 'aircraft' | 'artillery' | 'order' | 'countermeasure';
-  overlayIcon?: 'star' | 'crosshairs' | 'shield' | 'wings' | 'bomb' | 'skull' | 'radio' | 'flag';
+  templateType: 'infantry' | 'tank' | 'aircraft' | 'artillery' | 'order' | 'countermeasure';
+  overlayIconId?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }
 ```
 *Ghi chú: Lộ trình này là "temporary fallback" giúp scale số lượng card mà không bottleneck khâu vẽ SVG. Sẽ revisit nếu có dedicated artist resource ở Gói DLC tương lai.*
