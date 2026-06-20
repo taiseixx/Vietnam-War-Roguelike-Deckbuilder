@@ -7,6 +7,10 @@
 > Khác với AGENT.md (quy trình cho từng task nhỏ), CR.md theo dõi các initiative đa-bước, có rủi ro,
 > cần rationale rõ ràng. KHÔNG xóa CR sau khi Done — giữ lại làm lịch sử quyết định.
 
+### Quy ước Quản trị Tài liệu (Governance Rules)
+1. Mọi tham chiếu CR-XXX mới thêm vào ROADMAP.md PHẢI đi kèm section CR-XXX tương ứng trong CR.md ngay trong cùng lần sửa — không cho phép tồn tại anchor link chỉ tới section chưa được tạo.
+2. Trạng thái "Done" chỉ được thiết lập sau khi có sự xác nhận trực tiếp bằng văn bản từ Supervisor/Lead.
+
 ## Quy ước
 - **Status**: `Proposed` → `Approved` → `In Progress` → `Done` | `Rejected` | `Superseded`
 - Mỗi CR PHẢI có: Mục tiêu, Scope (in/out), Risk & Rollback, Acceptance Criteria
@@ -17,7 +21,7 @@
 
 ## CR-001: Data-driven Combat Synergy System
 
-**Status**: Approved
+**Status**: In Progress
 **Priority**: P0
 **Ngày tạo**: 2026-06-20
 **Liên quan**: TDD.md Section VIII (dòng "AI Opponent đơn giản", "Battlefield.tsx quá lớn")
@@ -62,13 +66,13 @@ Loại bỏ hardcode synergy theo `card.id` literal trong `resolveCombatEngageme
 
 ## CR-002: Campaign Persistence (localStorage)
 
-**Status**: Approved
+**Status**: In Progress
 **Priority**: P0
 **Ngày tạo**: 2026-06-20
 **Liên quan**: TDD.md "No persistence | Medium"
 
 ### Mục tiêu
-Lưu campaign progress vào `localStorage` để refresh trang không làm mất tiến trình. KHÔNG lưu mid-battle state (quyết định có chủ đích — xem Rationale).
+Lưu campaign progress vào `localStorage` để refresh trang không làm mất tiến trình. `playerHQDef` là dữ liệu chiến dịch Meta cực kỳ quan trọng (Nhóm A), bắt buộc phải được duy trì xuyên suốt các trận đấu.
 
 ### Scope
 **In scope:**
@@ -129,3 +133,17 @@ Tạo hệ thống template SVG tham số hóa (config-driven) để card mới 
 |------|-----|--------|------|
 | 2026-06-20 | CR-001, CR-002, CR-003 | Approved | Khởi tạo sau code audit toàn diện |
 | 2026-06-20 | CR-003 | Done | Tích hợp hệ thống ArtTemplateConfig vào PropagandaPoster |
+
+---
+
+## [CR-004] Automated Game Balancing Simulation & Telemetry System
+- **Trạng thái**: Paused
+- **Lý do tạm dừng**: Tạm dừng để dọn dẹp lỗi và tối ưu UI mobile theo lộ trình Milestone 3 của ROADMAP.md.
+
+## [CR-005] Unified Card Frame & Proportional Viewport Scaling
+- **Trạng thái**: In Progress
+- **Mô tả**: Hợp nhất hiển thị thẻ bài và tối ưu hóa diện tích hiển thị trên mobile bằng giải pháp co giãn đồng dạng.
+
+## [CR-006] Content Pack 2 DLC
+- **Trạng thái**: Planned
+- **Mô tả**: Gói nội dung mở rộng số 1 với 20 thẻ bài mới, dựa hoàn toàn trên Effect khai báo.

@@ -21,9 +21,9 @@ Mọi chỉnh sửa trong dự án phải tuân thủ luồng tham chiếu phân
 
 ### 📍 Milestone 1: Tái cấu trúc nền tảng & Khử nợ kỹ thuật (Foundation & Core Refactoring)
 * **Mục tiêu**: Tách biệt hoàn toàn lõi tính toán game khỏi UI React, chuyển đổi sang cơ chế khai báo (data-driven) cho cả tác xạ (combat), di chuyển (movement), và dựng hình đồ họa (rendering).
-* **Trạng thái**: **HOÀN THÀNH (DONE)**
+* **Trạng thái**: **ĐANG TIẾN HÀNH (IN PROGRESS)**
 * **Thay đổi kiến trúc liên quan**:
-  - [CR-001: Data-driven Combat Synergy System](CR.md#cr-001-data-driven-combat-synergy-system) $\rightarrow$ Đã chuyển sang `Done`. Cập nhật đặc tả tại [GDD.md Section C11](GDD.md) và [TDD.md Section VIII](TDD.md).
+  - [CR-001: Data-driven Combat Synergy System](CR.md#cr-001-data-driven-combat-synergy-system) $\rightarrow$ Đang thực hiện (xem CR.md để biết phần còn thiếu). Cập nhật đặc tả tại [GDD.md Section C11](GDD.md) và [TDD.md Section VIII](TDD.md).
   - [CR-002: Campaign Persistence (localStorage)](CR.md#cr-002-campaign-persistence-localstorage) $\rightarrow$ Đã chuyển sang `Done`. Cập nhật giải pháp an toàn dữ liệu tại [TDD.md](TDD.md).
   - [CR-003: Data-driven Art Pipeline (Temporary Solution)](CR.md#cr-003-data-driven-art-pipeline-temporary-solution) $\rightarrow$ Đã chuyển sang `Done`. Cập nhật cơ chế tối ưu SVG tại [TDD.md](TDD.md).
 * **Kiểm soát chất lượng**:

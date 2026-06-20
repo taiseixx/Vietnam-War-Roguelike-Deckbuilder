@@ -45,7 +45,19 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Heavy Armor Breakers: Deals +1 ATK vs armored units (Patton Tanks, ACAV squads, Armoured Cav).',
-    artworkKeyword: 'steel_division'
+    artworkKeyword: 'steel_division',
+    combatEffects: [
+      {
+        trigger: 'onAttack',
+        condition: { targetIsArmored: true },
+        action: { type: 'addAtk', value: 1 }
+      },
+      {
+        trigger: 'onDefend',
+        condition: { targetIsArmored: true },
+        action: { type: 'addAtk', value: 1 }
+      }
+    ]
   },
   {
     id: 'nva_group_559',
@@ -105,7 +117,19 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Anti-Air Flak: Deals x2 damage to Helicopters / Aircraft units.',
-    artworkKeyword: 'machine_gun'
+    artworkKeyword: 'machine_gun',
+    combatEffects: [
+      {
+        trigger: 'onAttack',
+        condition: { targetUnitType: 'Aircraft' },
+        action: { type: 'multAtk', value: 2 }
+      },
+      {
+        trigger: 'onDefend',
+        condition: { targetUnitType: 'Aircraft' },
+        action: { type: 'multAtk', value: 2 }
+      }
+    ]
   },
   {
     id: 'nva_40th_artillery',
@@ -135,7 +159,13 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Aircraft',
     rarity: 'Rare',
     ability: 'Air Supremacy: Attacks and damages an enemy aircraft instantly upon deployment.',
-    artworkKeyword: 'jet'
+    artworkKeyword: 'jet',
+    deployEffects: [
+      {
+        trigger: 'onDeploy',
+        action: { type: 'interceptAircraft', value: 4 }
+      }
+    ]
   },
   {
     id: 'nva_command_vanguard',
@@ -281,7 +311,17 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Mine Clearance: On deploy, grant +3 Armor shield to US HQ and clear any enemy traps on its line.',
-    artworkKeyword: 'engineers'
+    artworkKeyword: 'engineers',
+    deployEffects: [
+      {
+        trigger: 'onDeploy',
+        action: { type: 'addArmorToHQ', value: 3 }
+      },
+      {
+        trigger: 'onDeploy',
+        action: { type: 'clearEnemyTraps' }
+      }
+    ]
   },
   {
     id: 'us_9th_riverines',
@@ -296,7 +336,19 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Swamp Operations: Receives +2 ATK when fighting or defending inside the Conflict Zone (Line 3).',
-    artworkKeyword: 'us_boats'
+    artworkKeyword: 'us_boats',
+    combatEffects: [
+      {
+        trigger: 'onAttack',
+        condition: { locationRow: 1 },
+        action: { type: 'addAtk', value: 2 }
+      },
+      {
+        trigger: 'onDefend',
+        condition: { locationRow: 1 },
+        action: { type: 'addAtk', value: 2 }
+      }
+    ]
   },
   {
     id: 'us_m113_acav',
@@ -311,7 +363,14 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Tank',
     rarity: 'Uncommon',
     ability: 'Armor Carrier: When destroyed, spawns a 2/2 ACAV Squad Infantry unit on its current tile.',
-    artworkKeyword: 'armoured_pc'
+    artworkKeyword: 'armoured_pc',
+    isArmored: true,
+    combatEffects: [
+      {
+        trigger: 'onDeath',
+        action: { type: 'spawnUnit', spawnCardId: 'us_acav_squad' }
+      }
+    ]
   },
   {
     id: 'us_101st_airborne',
@@ -371,7 +430,13 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Infantry',
     rarity: 'Elite',
     ability: 'Green Berets: On killing an enemy unit, heals to full DEF and gains an extra action link this round.',
-    artworkKeyword: 'green_beret'
+    artworkKeyword: 'green_beret',
+    combatEffects: [
+      {
+        trigger: 'onKill',
+        action: { type: 'healFullAndExtraAction' }
+      }
+    ]
   },
   {
     id: 'us_m48_patton',
@@ -386,7 +451,14 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Tank',
     rarity: 'Elite',
     ability: 'Heavy Steel & Overkill: Excess combat damage is dealt straight to the enemy NVA/VC HQ DEF.',
-    artworkKeyword: 'patton_tank'
+    artworkKeyword: 'patton_tank',
+    isArmored: true,
+    combatEffects: [
+      {
+        trigger: 'onAttack',
+        action: { type: 'overkillToHQ' }
+      }
+    ]
   },
   {
     id: 'us_order_hamlet',
@@ -487,7 +559,19 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Ambush: Always deals damage first (first-strike) when attacked by melee enemy units.',
-    artworkKeyword: 'vc_guerrilla'
+    artworkKeyword: 'vc_guerrilla',
+    combatEffects: [
+      {
+        trigger: 'onAttack',
+        condition: { isMeleeAttack: true },
+        action: { type: 'firstStrike' }
+      },
+      {
+        trigger: 'onDefend',
+        condition: { isMeleeAttack: true },
+        action: { type: 'firstStrike' }
+      }
+    ]
   },
   {
     id: 'vc_126th_specops',
@@ -502,7 +586,13 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Demolition Strike: On reaching the US Support Line (Line 4), self-destructs and instantly destroys a US Artillery/Air unit on that line.',
-    artworkKeyword: 'vc_sapper'
+    artworkKeyword: 'vc_sapper',
+    movementEffects: [
+      {
+        trigger: 'onReachRow',
+        action: { type: 'demolitionStrike' }
+      }
+    ]
   },
   {
     id: 'vc_7th_reg_artillery',
@@ -577,7 +667,13 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Battle Hardened: Permanently gains +1 ATK every time it survives a defensive engagement.',
-    artworkKeyword: 'arvn_regulars'
+    artworkKeyword: 'arvn_regulars',
+    combatEffects: [
+      {
+        trigger: 'onSurviveDefend',
+        action: { type: 'permanentAtkBuff', value: 1 }
+      }
+    ]
   },
   {
     id: 'arvn_7th_armoured',
@@ -592,7 +688,20 @@ export const CARD_DATABASE: Card[] = [
     unitType: 'Tank',
     rarity: 'Rare',
     ability: 'Escort: Heavy steel armor reduces all ranged and incoming artillery/airstrike damage taken by 1 point.',
-    artworkKeyword: 'arvn_apc'
+    artworkKeyword: 'arvn_apc',
+    isArmored: true,
+    combatEffects: [
+      {
+        trigger: 'onAttack',
+        condition: { isRangedAttack: true },
+        action: { type: 'reduceDmgTaken', value: 1 }
+      },
+      {
+        trigger: 'onDefend',
+        condition: { isRangedAttack: true },
+        action: { type: 'reduceDmgTaken', value: 1 }
+      }
+    ]
   },
   {
     id: 'arvn_order_binh_dinh',

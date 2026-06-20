@@ -1,6 +1,7 @@
 import { strict as assert } from 'assert';
 import { resolveCombatEngagement, checkMoveTriggers, executeDeployEffects } from '../logic/combatEngine.js';
 import { Grid, GridUnit, Card } from '../types.js';
+import { CARD_DATABASE } from '../data/cards.js';
 
 // Helper to create mock units
 function makeUnit(
@@ -12,6 +13,7 @@ function makeUnit(
   def: number,
   maxDef?: number
 ): GridUnit {
+  const baseCard = CARD_DATABASE.find(c => c.id === id);
   return {
     id,
     name,
@@ -20,18 +22,22 @@ function makeUnit(
     o: 1,
     atk,
     def,
-    maxDef: maxDef ?? def,
+    maxDef: maxDef ?? (baseCard?.maxDef ?? def),
     type: 'Unit',
-    unitType,
-    rarity: 'Common',
-    ability: '',
+    unitType: baseCard?.unitType ?? unitType,
+    rarity: baseCard?.rarity ?? 'Common',
+    ability: baseCard?.ability ?? '',
     artworkKeyword: 'test',
     instanceId: `test-${id}-${Math.floor(Math.random() * 100000)}`,
     hasMovedOrAttackedThisTurn: false,
     camouflage: false,
     frozenTurns: 0,
     armor: 0,
-    isAmphibious: false
+    isAmphibious: false,
+    isArmored: baseCard?.isArmored,
+    combatEffects: baseCard?.combatEffects,
+    movementEffects: baseCard?.movementEffects,
+    deployEffects: baseCard?.deployEffects
   };
 }
 
@@ -485,6 +491,51 @@ runTest("126th SpecOps Relative Directional Trigger (AI moving down to Row 2)", 
   assert.equal(res.nextGrid[2][1], null, "Player artillery on Row 2 should be demolished");
   // SpecOps self destructs
   assert.equal(res.nextGrid[2][2], null, "SpecOps should have self-destructed");
+});
+
+
+// =============================================================================
+// IV. DEPLOY EFFECTS (CR-001 COMPLETION TESTS)
+// =============================================================================
+
+runTest("29. us_combat_engineers (onDeploy -> addArmorToHQ +3)", () => {
+  const grid = makeEmptyGrid();
+  const card: Card = {
+    id: 'us_combat_engineers',
+    name: 'Engineers',
+    faction: 'US',
+    k: 3, o: 1, atk: 2, def: 4, maxDef: 4,
+    type: 'Unit', unitType: 'Infantry', rarity: 'Common',
+    ability: 'Test', artworkKeyword: 'test',
+    deployEffects: [{ trigger: 'onDeploy', action: { type: 'addArmorToHQ', value: 3 } }]
+  };
+
+  const context = { playerHQDef: 20, opponentHQDef: 20, playerHQArmor: 0, opponentHQArmor: 0 };
+  const res = executeDeployEffects(card, grid, true, [], ['US'], ['NVA'], context);
+
+  assert.equal(res.nextContext.playerHQArmor, 3, "Allied HQ should have gained 3 Armor");
+});
+
+runTest("30. nva_mig17_pilot (onDeploy -> interceptAircraft deals 4 damage)", () => {
+  const grid = makeEmptyGrid();
+  // Place an enemy Aircraft
+  const enemyAir = makeUnit('generic_air', 'Huey', 'Aircraft', 'US', 2, 5);
+  grid[2][2] = enemyAir;
+
+  const pilotCard: Card = {
+    id: 'nva_mig17_pilot',
+    name: 'MiG-17',
+    faction: 'NVA',
+    k: 4, o: 2, atk: 4, def: 2, maxDef: 2,
+    type: 'Unit', unitType: 'Aircraft', rarity: 'Rare',
+    ability: 'Test', artworkKeyword: 'test',
+    deployEffects: [{ trigger: 'onDeploy', action: { type: 'interceptAircraft', value: 4 } }]
+  };
+
+  const res = executeDeployEffects(pilotCard, grid, true, [], ['NVA'], ['US']);
+
+  const finalEnemy = res.nextGrid[2][2];
+  assert.ok(finalEnemy && finalEnemy.def === 1, "Enemy aircraft should have taken 4 damage (5 - 4 = 1)");
 });
 
 

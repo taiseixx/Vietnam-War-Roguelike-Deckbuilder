@@ -750,7 +750,23 @@ Backdrop: backdrop-blur-sm / bg-stone-950
 
 ---
 
-## VII. BUILD & DEPLOYMENT
+## VII. PHIÊN BẢN CHIẾN DỊCH VÀ LƯU TRỮ (CAMPAIGN & PERSISTENCE)
+
+Hệ thống lưu trữ sử dụng `localStorage` để duy trì tiến trình chiến dịch. Dữ liệu được phân loại dựa trên mức độ ổn định và tầm quan trọng:
+
+- **Nhóm A: Dữ liệu Chiến dịch Meta (Bắt buộc Persist)**
+  - `playerHQDef`: Sinh mệnh tích lũy của người chơi xuyên suốt chiến dịch.
+  - `nodes`: Danh sách các nút của bản đồ chiến dịch.
+  - `playerDeck`: Bộ bài hiện tại của người chơi.
+  - `gold`, `xp`, `level`: Tài nguyên và cấp độ của người chỉ huy.
+  - `activeBattleNode`: Định danh trận đấu đang diễn ra để phục hồi khi nạp lại.
+
+- **Nhóm B: Dữ liệu Trận đấu (Volatile)**
+  - `grid`, `activeTraps`, `kredits`: Các trạng thái này thường được khởi tạo lại nếu người chơi thoát giữa trận (quyết định thiết kế nhằm tránh exploitation).
+
+---
+
+## VIII. BUILD & DEPLOYMENT
 
 ### 7.1 Build Pipeline
 

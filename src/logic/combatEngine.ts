@@ -67,133 +67,15 @@ export function cloneGrid(grid: Grid): Grid {
 // DECLARATIVE CARD EFFECT EXTRACTORS
 // --------------------------------------------------------------------------
 export function getUnitCombatEffects(unit: GridUnit): CombatEffect[] {
-  if (unit.combatEffects && unit.combatEffects.length > 0) {
-    return unit.combatEffects;
-  }
-  const effects: CombatEffect[] = [];
-  if (unit.id === 'nva_320th_steel') {
-    effects.push({
-      trigger: 'onAttack',
-      condition: { targetIsArmored: true },
-      action: { type: 'addAtk', value: 1 }
-    });
-    effects.push({
-      trigger: 'onDefend',
-      condition: { targetIsArmored: true },
-      action: { type: 'addAtk', value: 1 }
-    });
-  }
-  if (unit.id === 'nva_hmg_team') {
-    effects.push({
-      trigger: 'onAttack',
-      condition: { targetUnitType: 'Aircraft' },
-      action: { type: 'multAtk', value: 2 }
-    });
-    effects.push({
-      trigger: 'onDefend',
-      condition: { targetUnitType: 'Aircraft' },
-      action: { type: 'multAtk', value: 2 }
-    });
-  }
-  if (unit.id === 'us_9th_riverines') {
-    effects.push({
-      trigger: 'onAttack',
-      condition: { locationRow: 1 },
-      action: { type: 'addAtk', value: 2 }
-    });
-    effects.push({
-      trigger: 'onDefend',
-      condition: { locationRow: 1 },
-      action: { type: 'addAtk', value: 2 }
-    });
-  }
-  if (unit.id === 'vc_guerrilla_cell') {
-    effects.push({
-      trigger: 'onDefend',
-      condition: { isMeleeAttack: true },
-      action: { type: 'firstStrike' }
-    });
-    effects.push({
-      trigger: 'onAttack',
-      condition: { isMeleeAttack: true },
-      action: { type: 'firstStrike' }
-    });
-  }
-  if (unit.id === 'arvn_7th_armoured') {
-    effects.push({
-      trigger: 'onDefend',
-      condition: { isRangedAttack: true },
-      action: { type: 'reduceDmgTaken', value: 1 }
-    });
-    effects.push({
-      trigger: 'onAttack',
-      condition: { isRangedAttack: true },
-      action: { type: 'reduceDmgTaken', value: 1 }
-    });
-  }
-  if (unit.id === 'us_m48_patton') {
-    effects.push({
-      trigger: 'onAttack',
-      action: { type: 'overkillToHQ' }
-    });
-  }
-  if (unit.id === 'us_m113_acav') {
-    effects.push({
-      trigger: 'onDeath',
-      action: { type: 'spawnUnit', spawnCardId: 'us_acav_squad' }
-    });
-  }
-  if (unit.id === 'us_5th_specops') {
-    effects.push({
-      trigger: 'onKill',
-      action: { type: 'healFullAndExtraAction' }
-    });
-  }
-  if (unit.id === 'arvn_1st_infantry') {
-    effects.push({
-      trigger: 'onSurviveDefend',
-      action: { type: 'permanentAtkBuff', value: 1 }
-    });
-  }
-  return effects;
+  return unit.combatEffects || [];
 }
 
 export function getUnitMovementEffects(unit: GridUnit): MovementEffect[] {
-  if (unit.movementEffects && unit.movementEffects.length > 0) {
-    return unit.movementEffects;
-  }
-  const effects: MovementEffect[] = [];
-  if (unit.id === 'vc_126th_specops') {
-    effects.push({
-      trigger: 'onReachRow',
-      action: { type: 'demolitionStrike' }
-    });
-  }
-  return effects;
+  return unit.movementEffects || [];
 }
 
 export function getUnitDeployEffects(card: Card | GridUnit): DeployEffect[] {
-  if (card.deployEffects && card.deployEffects.length > 0) {
-    return card.deployEffects;
-  }
-  const effects: DeployEffect[] = [];
-  if (card.id === 'us_combat_engineers') {
-    effects.push({
-      trigger: 'onDeploy',
-      action: { type: 'addArmorToHQ', value: 3 }
-    });
-    effects.push({
-      trigger: 'onDeploy',
-      action: { type: 'clearEnemyTraps' }
-    });
-  }
-  if (card.id === 'nva_mig17_pilot') {
-    effects.push({
-      trigger: 'onDeploy',
-      action: { type: 'interceptAircraft', value: 4 }
-    });
-  }
-  return effects;
+  return card.deployEffects || [];
 }
 
 // --------------------------------------------------------------------------
@@ -299,7 +181,7 @@ export function resolveCombatEngagement(
   const attacker = { ...attackerInput };
   const defender = { ...defenderInput };
 
-  const isArmored = (u: GridUnit) => u.isArmored || ['us_m113_acav', 'us_m48_patton', 'arvn_7th_armoured'].includes(u.id);
+  const isArmored = (u: GridUnit) => !!u.isArmored;
   const isMelee = (u: GridUnit) => u.unitType === 'Infantry' || u.unitType === 'Tank';
   const isRanged = (u: GridUnit) => u.unitType === 'Artillery' || u.unitType === 'Aircraft';
 
@@ -536,9 +418,9 @@ export function resolveCombatEngagement(
   } else {
     nextGrid[attPos.r][attPos.c] = {
       ...attacker,
-      hasAttackedThisTurn: attacker.id === 'us_5th_specops' ? attacker.hasAttackedThisTurn : true,
-      hasMovedOrAttackedThisTurn: attacker.id === 'us_5th_specops' ? attacker.hasMovedOrAttackedThisTurn : true,
-      hasMovedThisTurn: attacker.id === 'us_5th_specops' ? attacker.hasMovedThisTurn : true
+      hasAttackedThisTurn: (attacker.combatEffects?.some(e => e.action.type === 'healFullAndExtraAction')) ? attacker.hasAttackedThisTurn : true,
+      hasMovedOrAttackedThisTurn: (attacker.combatEffects?.some(e => e.action.type === 'healFullAndExtraAction')) ? attacker.hasMovedOrAttackedThisTurn : true,
+      hasMovedThisTurn: (attacker.combatEffects?.some(e => e.action.type === 'healFullAndExtraAction')) ? attacker.hasMovedThisTurn : true
     };
   }
 
