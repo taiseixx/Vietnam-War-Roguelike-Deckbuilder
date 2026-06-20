@@ -9,7 +9,8 @@ import tableBg from '../assets/images/wood_battlefield_table_1781636718604.jpg';
 import {
   resolveCombatEngagement as engineResolveCombat,
   checkMoveTriggers as engineCheckMoveTriggers,
-  executeDeployEffects as engineExecuteDeployEffects
+  executeDeployEffects as engineExecuteDeployEffects,
+  BattleStateContext
 } from '../logic/combatEngine';
 
 import { sound } from '../utils/sound';
@@ -671,15 +672,20 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     nextGrid: Grid,
     isPlayerAttacking: boolean
   ) => {
-    const result = engineResolveCombat(attacker, defender, attPos, defPos, nextGrid, isPlayerAttacking);
+    const currentContext: BattleStateContext = {
+      playerHQDef: playerHQ,
+      opponentHQDef: opponentHQ,
+      playerHQArmor: playerHQArmor,
+      opponentHQArmor: opponentHQArmor
+    };
 
-    // Apply state changes
-    if (result.playerHQDmg > 0) {
-      setPlayerHQ((prev) => Math.max(0, prev - result.playerHQDmg));
-    }
-    if (result.opponentHQDmg > 0) {
-      setOpponentHQ((prev) => Math.max(0, prev - result.opponentHQDmg));
-    }
+    const result = engineResolveCombat(attacker, defender, attPos, defPos, nextGrid, isPlayerAttacking, currentContext);
+
+    // Apply state changes from updated pure context
+    setPlayerHQ(result.nextContext.playerHQDef);
+    setOpponentHQ(result.nextContext.opponentHQDef);
+    setPlayerHQArmor(result.nextContext.playerHQArmor);
+    setOpponentHQArmor(result.nextContext.opponentHQArmor);
 
     // Process logs
     result.logs.forEach((log) => {
@@ -698,6 +704,13 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   // COMMON MOVE TRIGGERS - HANDLES MINES, SPECIAL POSITION SYNERGIES, AND DEMOLITION STRIKE
   // ==========================================
   const checkMoveTriggers = (r: number, c: number, activeUnit: GridUnit, nextGrid: Grid, isPlayerMoving: boolean) => {
+    const currentContext: BattleStateContext = {
+      playerHQDef: playerHQ,
+      opponentHQDef: opponentHQ,
+      playerHQArmor: playerHQArmor,
+      opponentHQArmor: opponentHQArmor
+    };
+
     const result = engineCheckMoveTriggers(
       r,
       c,
@@ -706,7 +719,8 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       isPlayerMoving,
       activeTraps,
       faction,
-      playerSideFactions
+      playerSideFactions,
+      currentContext
     );
 
     // Assign sound effects
@@ -714,13 +728,11 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       sound.playExplosion();
     }
 
-    // Apply HQ damage
-    if (result.playerHQDmg > 0) {
-      setPlayerHQ((prev) => Math.max(0, prev - result.playerHQDmg));
-    }
-    if (result.opponentHQDmg > 0) {
-      setOpponentHQ((prev) => Math.max(0, prev - result.opponentHQDmg));
-    }
+    // Apply state changes from updated pure context
+    setPlayerHQ(result.nextContext.playerHQDef);
+    setOpponentHQ(result.nextContext.opponentHQDef);
+    setPlayerHQArmor(result.nextContext.playerHQArmor);
+    setOpponentHQArmor(result.nextContext.opponentHQArmor);
 
     // Update active traps
     setActiveTraps(result.activeTraps);
@@ -1031,24 +1043,31 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
     sound.playDeploy();
 
+    const currentContext: BattleStateContext = {
+      playerHQDef: playerHQ,
+      opponentHQDef: opponentHQ,
+      playerHQArmor: playerHQArmor,
+      opponentHQArmor: opponentHQArmor
+    };
+
     const deployRes = engineExecuteDeployEffects(
       card,
       grid,
       true,
       activeTraps,
       playerSideFactions,
-      opponentSideFactions
+      opponentSideFactions,
+      currentContext
     );
 
     if (deployRes.soundEffect === 'explosion') {
       sound.playExplosion();
     }
-    if (deployRes.playerHQArmorDiff > 0) {
-      setPlayerHQArmor((a) => a + deployRes.playerHQArmorDiff);
-    }
-    if (deployRes.opponentHQArmorDiff > 0) {
-      setOpponentHQArmor((a) => a + deployRes.opponentHQArmorDiff);
-    }
+    setPlayerHQ(deployRes.nextContext.playerHQDef);
+    setOpponentHQ(deployRes.nextContext.opponentHQDef);
+    setPlayerHQArmor(deployRes.nextContext.playerHQArmor);
+    setOpponentHQArmor(deployRes.nextContext.opponentHQArmor);
+
     setActiveTraps(deployRes.activeTraps);
     deployRes.logs.forEach((log) => addLog(log.message, log.tag));
 
@@ -2043,24 +2062,31 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                     isAmphibious: card.id === 'nva_803rd_riverine' || card.id === 'us_9th_riverines' || card.ability?.toLowerCase().includes('amphibious'),
                   };
 
+                  const deployContext: BattleStateContext = {
+                    playerHQDef: playerHQ,
+                    opponentHQDef: opponentHQ,
+                    playerHQArmor: playerHQArmor,
+                    opponentHQArmor: opponentHQArmor
+                  };
+
                   const deployRes = engineExecuteDeployEffects(
                     card,
                     nextGrid,
                     false,
                     activeTraps,
                     playerSideFactions,
-                    opponentSideFactions
+                    opponentSideFactions,
+                    deployContext
                   );
 
                   if (deployRes.soundEffect === 'explosion') {
                     sound.playExplosion();
                   }
-                  if (deployRes.playerHQArmorDiff > 0) {
-                    setPlayerHQArmor((a) => a + deployRes.playerHQArmorDiff);
-                  }
-                  if (deployRes.opponentHQArmorDiff > 0) {
-                    setOpponentHQArmor((a) => a + deployRes.opponentHQArmorDiff);
-                  }
+                  setPlayerHQ(deployRes.nextContext.playerHQDef);
+                  setOpponentHQ(deployRes.nextContext.opponentHQDef);
+                  setPlayerHQArmor(deployRes.nextContext.playerHQArmor);
+                  setOpponentHQArmor(deployRes.nextContext.opponentHQArmor);
+
                   setActiveTraps(deployRes.activeTraps);
                   deployRes.logs.forEach((log) => addLog(log.message, log.tag));
 

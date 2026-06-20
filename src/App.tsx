@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CampaignState, CampaignNode, Faction } from './types';
 import { CARD_DATABASE } from './data/cards';
 import { generateDynamicDeck } from './utils/deck';
@@ -6,6 +6,7 @@ import { CampaignMap } from './components/CampaignMap';
 import { Battlefield } from './components/Battlefield';
 import { sound } from './utils/sound';
 import { Compass, Flame, ShieldAlert, Award, Star, RefreshCw, Sparkles } from 'lucide-react';
+import { loadCampaignState, saveCampaignState, clearCampaignState } from './logic/campaignPersistence';
 
 // STUNNING TITLE BANNER IMAGE
 const titleBanner = "/src/assets/images/vietnam_propaganda_banner_1781634330429.jpg";
@@ -37,6 +38,25 @@ export default function App() {
   const [activeEventNode, setActiveEventNode] = useState<CampaignNode | null>(null);
   const [showDraftPool, setShowDraftPool] = useState(false);
   const [draftPool, setDraftPool] = useState<Card[]>([]);
+
+  // 1. One-time campaign session load restoration on mount
+  useEffect(() => {
+    const savedSession = loadCampaignState();
+    if (savedSession) {
+      setCampaignState(savedSession.state);
+      setActiveScreen(savedSession.screen);
+      sound.playRadioStatic();
+    }
+  }, []);
+
+  // 2. Incremental continuous campaign session state auto-saves
+  useEffect(() => {
+    if (activeScreen === 'faction_selection' || activeScreen === 'campaign_over') {
+      clearCampaignState();
+    } else if (campaignState && campaignState.playerDeck.length > 0 && campaignState.nodes.length > 0) {
+      saveCampaignState(campaignState, activeScreen);
+    }
+  }, [campaignState, activeScreen]);
 
   // INITIALIZE FACTION CAMPAIGN DECKS & MAP NODES
   const selectFactionAndStart = (faction: Faction) => {
