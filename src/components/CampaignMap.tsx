@@ -4,6 +4,7 @@ import { Play, Flame, Compass, ShieldAlert, Award, Star, Compass as RadarIcon, E
 import { sound } from '../utils/sound';
 import { PropagandaPoster } from './PropagandaPoster';
 import { CardFrame } from './CardFrame';
+import { calculateResponsiveCardWidth, debounce } from '../utils/uiHelper';
 
 interface CampaignMapProps {
   campaignState: CampaignState;
@@ -36,7 +37,7 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    const handleResize = debounce(() => setWindowWidth(window.innerWidth), 100);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -421,11 +422,12 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
 
           <div className="flex flex-wrap justify-center gap-6 w-full max-w-4xl px-4 select-none mb-8">
             {draftPool.map((card) => {
-              const cardWidth = Math.min(200, (windowWidth - 48) / 3);
+              const cardWidth = calculateResponsiveCardWidth(windowWidth);
               return (
                 <div
                   key={card.id}
-                  className="relative cursor-pointer transition-transform duration-300 transform scale-100 hover:scale-105 hover:-translate-y-2"
+                  className="relative cursor-pointer transition-transform duration-300 transform scale-100 hover:scale-105 hover:-translate-y-2 flex-shrink-0"
+                  style={{ width: cardWidth, height: cardWidth * 1.4 }}
                 >
                   <CardFrame
                     card={card}
@@ -466,12 +468,12 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
 
           <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl pb-10">
             {groupedDeck.map(({ card, count }, idx) => {
-              // 4 columns max for comfortable deck viewing
-              const cardWidth = Math.min(160, (windowWidth - 64) / 4);
+              const cardWidth = calculateResponsiveCardWidth(windowWidth);
               return (
                 <div
                   key={`${card.id}-${idx}`}
-                  className="relative transition-transform duration-300 transform hover:-translate-y-1"
+                  className="relative transition-transform duration-300 transform hover:-translate-y-1 flex-shrink-0"
+                  style={{ width: cardWidth, height: cardWidth * 1.4 }}
                 >
                   <CardFrame card={card} width={cardWidth} />
                   {count > 1 && (

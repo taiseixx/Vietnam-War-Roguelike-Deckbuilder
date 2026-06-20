@@ -1,6 +1,8 @@
 # TDD.md — Technical Design Document
 ## Vietnam War Roguelike Deckbuilder
 
+> [⬅️ Quay lại ROADMAP.md](ROADMAP.md)
+
 > **Phiên bản**: 1.0 | **Ngày**: Tháng 6, 2026
 > Tài liệu kỹ thuật chi tiết về kiến trúc hệ thống, cấu trúc dữ liệu, luồng xử lý state, và các implementation đặc biệt trong dự án.
 

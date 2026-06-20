@@ -1,5 +1,7 @@
 # Vietnam War Card Game - Bug Tracking System (BUG.md)
 
+> [⬅️ Quay lại ROADMAP.md](ROADMAP.md)
+
 ## QUY TẮC THỬ THÁCH 5 LƯỢT CHAT BẤT BIẾN (5-Turn Verification Rule)
 Để đảm bảo tính ổn định tuyệt đối và ngăn chặn triệt để tình trạng hồi quy lỗi (regression), mọi lỗi được vá thành công phải trải qua một quy trình kiểm duyệt nghiêm ngặt qua 5 lượt phản hồi liên tiếp trước khi được coi là hoàn toàn giải quyết.
 1. **Trạng thái khởi đầu**: Khi lỗi được vá, chuyển trạng thái thành `Fixed - Verification Pending [1/5]`.
@@ -13,11 +15,11 @@
 
 | ID | Mô tả lỗi | Phạm vi ảnh hưởng | Trạng thái hiện tại | Lượt xác minh |
 | :--- | :--- | :--- | :--- | :--- |
-| **BUG-001** | 5th Special Forces Action Override | Gameplay / Ability Action | Fixed - Verification Pending | `[2/5]` |
-| **BUG-002** | 126th SpecOps Boundary Directionality Bug | Pathfinding / Movement | Fixed - Verification Pending | `[2/5]` |
-| **BUG-003** | HQ Armor Overkill Calculation Bypass | Battle Engine / Damage calc | Fixed - Verification Pending | `[2/5]` |
-| **BUG-004** | Safari Private Mode LocalStorage Quota Exceeded Crash | Client persistence | Fixed - Verification Pending | `[2/5]` |
-| **BUG-005** | Mobile Viewport / Iframe Mulligan Stretched & Height Overflow Bug | UI/UX / Mulligan Overlay / CardFrame | **Open - Proposed Solution Pending Review** | `[0/5]` |
+| **BUG-001** | 5th Special Forces Action Override | Gameplay / Ability Action | Fixed - Verification Pending | `[3/5]` |
+| **BUG-002** | 126th SpecOps Boundary Directionality Bug | Pathfinding / Movement | Fixed - Verification Pending | `[3/5]` |
+| **BUG-003** | HQ Armor Overkill Calculation Bypass | Battle Engine / Damage calc | Fixed - Verification Pending | `[3/5]` |
+| **BUG-004** | Safari Private Mode LocalStorage Quota Exceeded Crash | Client persistence | Fixed - Verification Pending | `[3/5]` |
+| **BUG-005** | Mobile Viewport / Iframe Mulligan Stretched & Height Overflow Bug | UI/UX / Mulligan Overlay / CardFrame | **Fixed - Verification Pending** | `[1/5]` |
 
 ---
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../types';
 import { PropagandaPoster } from './PropagandaPoster';
 import { CardFrame } from './CardFrame';
+import { calculateResponsiveCardWidth, debounce } from '../utils/uiHelper';
 import { sound } from '../utils/sound';
 
 interface MulliganOverlayProps {
@@ -17,9 +18,9 @@ export const MulliganOverlay: React.FC<MulliganOverlayProps> = ({
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
-    const fn = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', fn);
-    return () => window.removeEventListener('resize', fn);
+    const handleResize = debounce(() => setWindowWidth(window.innerWidth), 100);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const handleToggleCard = (idx: number) => {
@@ -50,7 +51,7 @@ export const MulliganOverlay: React.FC<MulliganOverlayProps> = ({
         </div>
       </div>
 
-      <div className="max-w-4xl text-center space-y-2 mb-8">
+      <div className="max-w-4xl text-center space-y-2 mb-4 sm:mb-8">
         <h1 className="text-3xl md:text-5xl font-mono tracking-tight text-amber-500 font-bold uppercase">
           Universal Mulligan Phase
         </h1>
@@ -59,13 +60,17 @@ export const MulliganOverlay: React.FC<MulliganOverlayProps> = ({
         </p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-4 md:gap-6 w-full max-w-5xl px-4 select-none mb-10">
+      <div className="flex flex-wrap justify-center gap-4 md:gap-6 w-full max-w-5xl px-4 select-none mb-6 sm:mb-10">
         {initialHand.map((card, idx) => {
           const isSelected = selectedIndices.includes(idx);
-          const cardWidth = Math.min(180, (windowWidth - 48) / 2); // 2 columns minimum on small screens
+          const cardWidth = calculateResponsiveCardWidth(windowWidth);
           
           return (
-            <div key={`${card.id}-${idx}`} className="relative">
+            <div 
+              key={`${card.id}-${idx}`} 
+              className="relative flex-shrink-0"
+              style={{ width: cardWidth, height: cardWidth * 1.4 }}
+            >
               <CardFrame
                 card={card}
                 width={cardWidth}

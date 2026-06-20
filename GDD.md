@@ -1,6 +1,8 @@
 # GDD.md — Game Design Document
 ## Vietnam War Roguelike Deckbuilder
 
+> [⬅️ Quay lại ROADMAP.md](ROADMAP.md)
+
 > **Phiên bản**: 1.0 | **Ngày**: Tháng 6, 2026
 > Tài liệu này mô tả toàn bộ thiết kế game theo khung **Mechanics → Dynamics → Aesthetics (MDA)**.
 

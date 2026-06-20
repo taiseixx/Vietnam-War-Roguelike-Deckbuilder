@@ -16,6 +16,7 @@ import {
 import { sound } from '../utils/sound';
 import { PropagandaPoster } from './PropagandaPoster';
 import { MulliganOverlay } from './MulliganOverlay';
+import { debounce } from '../utils/uiHelper';
 import { CardDetailModal } from './CardDetailModal';
 import { CardFrame } from './CardFrame';
 import { Shield, Swords, Crosshair, ArrowDown, ArrowUp, Activity, Terminal, RotateCcw, Volume2, VolumeX, Flame } from 'lucide-react';
@@ -42,7 +43,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    const handleResize = debounce(() => setWindowWidth(window.innerWidth), 100);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);

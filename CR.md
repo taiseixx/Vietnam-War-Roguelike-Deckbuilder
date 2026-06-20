@@ -1,6 +1,8 @@
 # CR.md — Change Request Log
 ## Vietnam War Roguelike Deckbuilder
 
+> [⬅️ Quay lại ROADMAP.md](ROADMAP.md)
+
 > Tài liệu theo dõi các yêu cầu thay đổi lớn (Change Requests) đối với kiến trúc/scope game.
 > Khác với AGENT.md (quy trình cho từng task nhỏ), CR.md theo dõi các initiative đa-bước, có rủi ro,
 > cần rationale rõ ràng. KHÔNG xóa CR sau khi Done — giữ lại làm lịch sử quyết định.

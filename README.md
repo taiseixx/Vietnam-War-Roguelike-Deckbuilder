@@ -1,9 +1,12 @@
 # Vietnam War Roguelike Deckbuilder 🇻🇳⚔️
 > **Quyết chiến tại Đông Dương** — Trò chơi bài roguelike chiến thuật tái hiện chiến tranh Việt Nam với lối chơi đấu trí đỉnh cao trên sa bàn 3x5.
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://img.shields.io/badge/build-passing-brightgreen.svg)
-[![Tests](https://img.shields.io/badge/tests-29%20%2F%2029%20passed-success.svg)](https://img.shields.io/badge/tests-29%20%2F%2029%20passed-success.svg)
-[![Tech Stack](https://img.shields.io/badge/stack-React%20%7C%20TS%20%7C%20Vite%20%7C%20Tailwind-blue.svg)](https://img.shields.io/badge/stack-React%20%7C%20TS%20%7C%20Vite%20%7C%20Tailwind-blue.svg)
+---
+
+## 🗺️ Tài liệu Chỉ huy Chiến lược (Strategic Command)
+**[ROADMAP.md](ROADMAP.md)**: Tài liệu thượng tầng quản lý lộ trình phát triển, các Milestone và danh mục tài liệu toàn dự án.
+
+---
 
 **Vietnam War Roguelike Deckbuilder** là một tựa game chiến thuật thẻ bài roguelike màn hình ngang, nơi người chơi bước vào vai trò chỉ huy quân đội chiến đấu trên một sa bàn ô lưới 3x5 đầy rẫy hiểm nguy. Trò chơi là sự kết hợp sâu sắc giữa công tác hậu cần (Kredits), quy hoạch quân nhu, tuyến tác xạ phòng thủ bọc phá, và các học thuyết quân sự lịch sử dưới góc nhìn chiến thuật chân thực và khách quan.
 
