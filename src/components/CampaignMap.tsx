@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CampaignState, CampaignNode, Card } from '../types';
 import { Play, Flame, Compass, ShieldAlert, Award, Star, Compass as RadarIcon, Eye, ShoppingCart } from 'lucide-react';
 import { sound } from '../utils/sound';
 import { PropagandaPoster } from './PropagandaPoster';
+import { CardFrame } from './CardFrame';
 
 interface CampaignMapProps {
   campaignState: CampaignState;
@@ -31,6 +32,14 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
 }) => {
   const [showDeckViewer, setShowDeckViewer] = useState(false);
   const { nodes, currentNodeId, gold, level, playerDeck, currentFaction, playerHQDef } = campaignState;
+  
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Group duplicate cards to avoid visual flooding, keeping track of counts
   const groupedDeck = useMemo(() => {
@@ -410,42 +419,25 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-4xl px-4 select-none mb-8">
-            {draftPool.map((card) => (
-              <div
-                key={card.id}
-                onClick={() => {
-                  sound.playDeploy();
-                  onChooseDraftCard(card);
-                }}
-                className="relative cursor-pointer group rounded-lg overflow-hidden border border-stone-800 hover:border-amber-500 scale-100 hover:scale-102 hover:-translate-y-1 transition-all duration-300"
-              >
-                <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-stone-800 text-amber-500 shadow">
-                  {card.rarity}
+          <div className="flex flex-wrap justify-center gap-6 w-full max-w-4xl px-4 select-none mb-8">
+            {draftPool.map((card) => {
+              const cardWidth = Math.min(200, (windowWidth - 48) / 3);
+              return (
+                <div
+                  key={card.id}
+                  className="relative cursor-pointer transition-transform duration-300 transform scale-100 hover:scale-105 hover:-translate-y-2"
+                >
+                  <CardFrame
+                    card={card}
+                    width={cardWidth}
+                    onClick={() => {
+                      sound.playDeploy();
+                      onChooseDraftCard(card);
+                    }}
+                  />
                 </div>
-                <div className="aspect-[4/3] w-full">
-                  <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
-                </div>
-                <div className="p-3 bg-stone-950 font-mono text-xs text-stone-300 border-t border-stone-850">
-                  <div className="flex justify-between items-start gap-1 mb-1">
-                    <span className="font-bold text-amber-100 truncate group-hover:text-amber-400">
-                      {card.name}
-                    </span>
-                    <span className="shrink-0 text-[10px] bg-stone-800 px-1 text-amber-500 rounded">
-                      K:{card.k}
-                    </span>
-                  </div>
-                  <div className="flex gap-2 text-[10px] text-stone-500 mb-2">
-                    <span className="text-blue-400">O:{card.o}</span>
-                    <span className="text-red-400">ATK:{card.atk}</span>
-                    <span className="text-emerald-400">DEF:{card.def}</span>
-                  </div>
-                  <p className="text-[10px] leading-relaxed text-stone-400 line-clamp-3">
-                    {card.ability}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <button
             onClick={onExitDraft}
@@ -472,30 +464,24 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4 w-full max-w-5xl pb-10">
-            {groupedDeck.map(({ card, count }, idx) => (
-              <div
-                key={`${card.id}-${idx}`}
-                className="relative rounded overflow-hidden border border-stone-850 bg-stone-900 p-2 font-mono text-xs"
-              >
-                {count > 1 && (
-                  <div className="absolute top-1.5 right-1.5 bg-[#1E3A8A] text-[#93C5FD] font-black text-[10px] px-1.5 py-0.5 rounded-md shadow border border-[#3B82F6]/50 z-10 animate-pulse">
-                    x{count}
-                  </div>
-                )}
-                <div className="aspect-[4/3] w-full mb-2">
-                  <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
+          <div className="flex flex-wrap justify-center gap-4 w-full max-w-5xl pb-10">
+            {groupedDeck.map(({ card, count }, idx) => {
+              // 4 columns max for comfortable deck viewing
+              const cardWidth = Math.min(160, (windowWidth - 64) / 4);
+              return (
+                <div
+                  key={`${card.id}-${idx}`}
+                  className="relative transition-transform duration-300 transform hover:-translate-y-1"
+                >
+                  <CardFrame card={card} width={cardWidth} />
+                  {count > 1 && (
+                    <div className="absolute -top-1.5 -right-1.5 bg-[#1E3A8A] text-[#93C5FD] font-black text-sm px-2 py-0.5 rounded-full shadow-lg border-2 border-[#3B82F6]/70 z-50 animate-pulse">
+                      x{count}
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between font-bold text-amber-100 mb-1 truncate text-[11px]">
-                  <span>{card.name}</span>
-                </div>
-                <div className="flex gap-2 text-[9px] text-stone-500 font-bold uppercase">
-                  <span className="text-amber-500">K:{card.k}</span>
-                  <span className="text-blue-400">O:{card.o}</span>
-                  <span className="text-red-400">ATK:{card.atk}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

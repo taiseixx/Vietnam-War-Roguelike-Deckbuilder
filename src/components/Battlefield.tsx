@@ -17,6 +17,7 @@ import { sound } from '../utils/sound';
 import { PropagandaPoster } from './PropagandaPoster';
 import { MulliganOverlay } from './MulliganOverlay';
 import { CardDetailModal } from './CardDetailModal';
+import { CardFrame } from './CardFrame';
 import { Shield, Swords, Crosshair, ArrowDown, ArrowUp, Activity, Terminal, RotateCcw, Volume2, VolumeX, Flame } from 'lucide-react';
 
 interface BattlefieldProps {
@@ -38,6 +39,16 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 }) => {
   const playerSideFactions = faction === 'USA' ? ['US', 'ARVN'] : ['NVA', 'VC'];
   const opponentSideFactions = faction === 'USA' ? ['NVA', 'VC'] : ['US', 'ARVN'];
+
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const scaleFactor = Math.min(1, windowWidth / 768);
+
 
   // Opponent state
   const [opponentDeckRemaining, setOpponentDeckRemaining] = useState<Card[]>([]);
@@ -142,241 +153,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     return '🪖';
   };
 
-  // VECTORS FOR BESPOKE FACTION EMBLEMS
-  const renderUS_SSI = (card: Card, isMini: boolean) => {
-    const sizeClass = isMini ? 'w-4 h-4' : 'w-7 h-8';
-    if (card.artworkKeyword === 'huey' || card.name.includes('Cav') || card.id.includes('cav') || card.name.includes('Airmobile')) {
-      // 1st Cavalry Division
-      return (
-        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 30 36" fill="none">
-          <path d="M 0 6 A 6 6 0 0 0 6 12 L 24 12 A 6 6 0 0 0 30 6 Q 15 36 0 6" fill="#F4D03F" stroke="#111" strokeWidth="1.5"/>
-          <line x1="4" y1="4" x2="26" y2="26" stroke="#111" strokeWidth="3.5"/>
-          <path d="M 12 11 Q 14 6 18 8 L 22 11 L 18 16 Q 14 16 12 13 Z" fill="#111"/>
-        </svg>
-      );
-    } else if (card.artworkKeyword === 'screaming_eagles' || card.name.includes('101st') || card.id.includes('airborne') || card.name.includes('Eagles')) {
-      // 101st Airborne
-      return (
-        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 30 36" fill="none">
-          <path d="M 3 6 L 27 6 L 27 24 Q 15 36 3 24 Z" fill="#1B4F72" stroke="#111" strokeWidth="1.5"/>
-          <rect x="3" y="1" width="24" height="6" fill="#922B21" rx="1"/>
-          <circle cx="15" cy="18" r="8" fill="#FFF" stroke="#111" strokeWidth="0.5"/>
-          <path d="M 18 19 L 24 20 L 20 22 C 18 22 17 21 17 19" fill="#F1C40F"/>
-          <circle cx="13" cy="16" r="1.2" fill="#000"/>
-        </svg>
-      );
-    } else {
-      // 1st Signal / standard US Army shield
-      return (
-        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 30 36" fill="none">
-          <path d="M 0 6 L 15 1 L 30 6 L 30 24 Q 15 36 0 24 Z" fill="#2E4053" stroke="#BA4A00" strokeWidth="1.5" />
-          <path d="M 18 8 L 10 18 L 16 18 L 12 28 L 22 16 L 16 16 Z" fill="#F1C40F" stroke="#111" strokeWidth="0.5"/>
-        </svg>
-      );
-    }
-  };
-
-  const renderARVN_badge = (card: Card, isMini: boolean) => {
-    const sizeClass = isMini ? 'w-4 h-4' : 'w-7 h-7';
-    if (card.name.includes('Ranger') || card.id.includes('ranger') || card.id.includes('spec_ops') || card.id.includes('specops')) {
-      // Rangers - Hắc Hổ (Black Tiger)
-      return (
-        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]`} viewBox="0 0 32 32" fill="none">
-          <circle cx="16" cy="16" r="14" fill="#E67E22" stroke="#222" strokeWidth="1.5"/>
-          <path d="M 6 16 Q 16 26 26 16 M 8 13 Q 16 7 24 13 M 12 16 H 20" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
-          <circle cx="16" cy="11" r="2" fill="#000"/>
-          <path d="M 13 18 L 14 21 L 15 18 M 17 18 L 18 21 L 19 18" fill="#FFF" stroke="#222" strokeWidth="0.5"/>
-        </svg>
-      );
-    } else if (card.name.includes('Airborne') || card.name.includes('regulars') || card.name.includes('1st Infantry')) {
-      // Airborne badge (white parachute on blue/red)
-      return (
-        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]`} viewBox="0 0 32 32" fill="none">
-          <path d="M 2 16 C 2 7 9 2 16 2 C 23 2 30 7 30 16 C 30 25 23 30 16 30 C 9 30 2 25 2 16 Z" fill="#2980B9" stroke="#E74C3C" strokeWidth="1.5"/>
-          <path d="M 2 16 C 2 25 9 30 16 30 C 23 30 30 25 30 16 Z" fill="#C0392B"/>
-          <path d="M 8 15 Q 16 5 24 15 C 24 15 22 18 16 18 C 10 18 8 15 8 15 Z" fill="#FFF" stroke="#222" strokeWidth="1"/>
-          <line x1="8" y1="16" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
-          <line x1="12" y1="18" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
-          <line x1="16" y1="18" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
-          <line x1="20" y1="18" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
-          <line x1="24" y1="16" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
-        </svg>
-      );
-    } else {
-      // Anchor and Sword (Thủy quân lục chiến or general regional forces)
-      return (
-        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]`} viewBox="0 0 32 32" fill="none">
-          <circle cx="16" cy="16" r="14" fill="#27AE60" stroke="#F1C40F" strokeWidth="1.5"/>
-          <line x1="16" y1="6" x2="16" y2="26" stroke="#F1C40F" strokeWidth="3"/>
-          <path d="M 8 14 Q 16 24 24 14" stroke="#F1C40F" strokeWidth="2.5" fill="none"/>
-          <line x1="11" y1="10" x2="21" y2="20" stroke="#FFF" strokeWidth="1.5"/>
-        </svg>
-      );
-    }
-  };
-
-  const renderNVA_BranchInsignia = (card: Card, isMini: boolean) => {
-    const sizeClass = isMini ? 'w-4 h-4' : 'w-6 h-6';
-    if (card.artworkKeyword === 'sapper' || card.name.includes('Sapper') || card.id.includes('sapper')) {
-      // Special Recon/Sapper - Dagger and explosives block
-      return (
-        <svg className={`${sizeClass} inline-block mx-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]`} viewBox="0 0 24 24" fill="none">
-          <rect x="4" y="14" width="16" height="6" fill="#D4AC0D" stroke="#111" strokeWidth="1"/>
-          <line x1="12" y1="2" x2="12" y2="16" stroke="#B2BABB" strokeWidth="2.5"/>
-          <line x1="7" y1="16" x2="17" y2="16" stroke="#D4AC0D" strokeWidth="1.5"/>
-        </svg>
-      );
-    } else if (card.unitType === 'Artillery' || card.artworkKeyword === 'machine_gun' || card.name.includes('Artillery')) {
-      // Cannon barrels crossed
-      return (
-        <svg className={`${sizeClass} inline-block mx-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]`} viewBox="0 0 24 24" fill="none">
-          <line x1="4" y1="4" x2="20" y2="20" stroke="#D4AC0D" strokeWidth="3" strokeLinecap="round"/>
-          <line x1="4" y1="20" x2="20" y2="4" stroke="#D4AC0D" strokeWidth="3" strokeLinecap="round"/>
-          <circle cx="12" cy="12" r="3" fill="#FFF" stroke="#111" strokeWidth="1"/>
-        </svg>
-      );
-    } else {
-      // Crossed rifle/sword + Star (Infantry)
-      return (
-        <svg className={`${sizeClass} inline-block mx-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]`} viewBox="0 0 24 24" fill="none">
-          <line x1="4" y1="4" x2="20" y2="20" stroke="#D4AC0D" strokeWidth="2" strokeLinecap="round"/>
-          <line x1="4" y1="20" x2="20" y2="4" stroke="#B2BABB" strokeWidth="1.5" strokeLinecap="round"/>
-          <polygon points="12,5 14,10 19,10 15,13 17,18 12,15 7,18 9,13 5,10 10,10" fill="#D4AC0D" stroke="#111" strokeWidth="0.5"/>
-        </svg>
-      );
-    }
-  };
-
-  const renderNVA_CollarTab = (card: Card, isMini: boolean) => {
-    const numStars = card.rarity === 'Elite' ? 4 : card.rarity === 'Rare' ? 3 : card.rarity === 'Uncommon' ? 2 : 1;
-    const numStripes = (card.rarity === 'Elite' || card.rarity === 'Rare') ? 2 : 1;
-    
-    let tabBg = 'from-red-600 via-red-700 to-red-800'; 
-    if (card.unitType === 'Aircraft') {
-      tabBg = 'from-sky-500 via-sky-600 to-sky-700'; // AA / Air Force
-    } else if (card.unitType === 'Artillery' || card.unitType === 'Tank') {
-      tabBg = 'from-indigo-900 via-indigo-950 to-slate-950'; // Artillery / Heavy weapons
-    }
-    
-    const sizeClass = isMini ? 'h-3.5 px-1 py-0' : 'h-6 px-2 py-0.5';
-    const textClass = isMini ? 'text-[5px]' : 'text-[9px]';
-    const stripeClass = isMini ? 'w-[1px]' : 'w-[1.5px]';
-
-    return (
-      <div 
-        className={`relative flex items-center justify-center font-black ${sizeClass} text-yellow-300 bg-gradient-to-r ${tabBg} border border-yellow-500 overflow-hidden shadow-inner select-none pointer-events-none`}
-        style={{ transform: 'skewX(-15deg)', borderRadius: '2px' }}
-      >
-        {/* Collar Tab vertical yellow stripes */}
-        <div className={`absolute inset-y-0 left-1 ${stripeClass} bg-yellow-400 opacity-90`} />
-        {numStripes === 2 && (
-          <div className={`absolute inset-y-0 left-2 ${stripeClass} bg-yellow-400 opacity-90`} />
-        )}
-
-        {/* Tiny stars */}
-        <span className={`ml-2 font-mono ${textClass} tracking-tighter`} style={{ transform: 'skewX(15deg)' }}>
-          {Array.from({ length: numStars }).map(() => '★').join('')}
-        </span>
-      </div>
-    );
-  };
-
-  const renderVCMedallion = (card: Card, isMini: boolean) => {
-    const sizeClass = isMini ? 'w-4 h-4' : 'w-7 h-7';
-    // Medal "Dũng sĩ diệt Mỹ" or "Huân chương Quyết thắng"
-    if (card.id === 'vc_order_vuon_khong' || card.id === 'vc_order_dia_dao') {
-      return (
-        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 32 32" fill="none">
-          <circle cx="16" cy="16" r="14" fill="#C0392B" stroke="#D4AC0D" strokeWidth="2"/>
-          <polygon points="16,4 19,11 26,11 21,16 23,23 16,19 9,23 11,16 6,11 13,11" fill="#D4AC0D" stroke="#111" strokeWidth="0.5"/>
-        </svg>
-      );
-    } else {
-      return (
-        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 32 32" fill="none">
-          <path d="M 4 8 L 16 2 L 28 8 L 28 22 Q 16 30 4 22 Z" fill="#D35400" stroke="#F1C40F" strokeWidth="1.5"/>
-          <path d="M 10 16 Q 16 8 22 16 L 20 18 Q 16 14 12 18 Z" fill="#2C3E50" stroke="#111" strokeWidth="0.5"/>
-          <polygon points="16,3 17,6 20,6 18,8 19,11 16,9 13,11 14,8 12,6 15,6" fill="#F1C40F"/>
-        </svg>
-      );
-    }
-  };
-
-  // FACTION VISUAL DEFINITIONS
-  const getFactionShellStyle = (card: Card) => {
-    const isHQ = card.id === 'hq_player' || card.id === 'hq_opponent';
-    
-    switch (card.faction) {
-      case 'US':
-        const isFullColor = card.k > 3 || card.rarity === 'Elite' || card.rarity === 'Rare' || isHQ;
-        return {
-          frameClass: isHQ ? "rounded border-2 border-amber-600/60" : "rounded border-2 border-stone-700/80",
-          bgClass: isFullColor 
-            ? "bg-[#0B1527] bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#1E1B4B] text-amber-50" 
-            : "bg-[#27321B] text-stone-100", // Olive Drab Field look
-          bgStyle: isFullColor ? undefined : {
-            backgroundImage: "repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1.5px, transparent 1.5px, transparent 4px), repeating-linear-gradient(-45deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1.5px, transparent 1.5px, transparent 4px), radial-gradient(circle at center, #2e3c20 0%, #171f0f 100%)"
-          },
-          insigniaPosition: "top-1 left-[32px]",
-          titleFont: "font-sans uppercase tracking-tight font-black text-stone-100",
-          accentColor: "border-amber-500/30 shadow-amber-950/50"
-        };
-      case 'ARVN':
-        // Stamped Aluminum Hand-Cut Look (Beer Can Badge)
-        return {
-          frameClass: "rounded border-2 border-stone-400 shadow-[inset_0_3px_6px_rgba(255,255,255,0.7),_inset_0_-3px_5px_rgba(0,0,0,0.35)]",
-          bgClass: "bg-gradient-to-br from-[#D4D4D8] via-[#F4F4F5] to-[#A1A1AA] text-stone-950",
-          bgStyle: undefined,
-          insigniaPosition: "top-1 left-[32px]",
-          titleFont: "font-serif font-black text-stone-900 border-b border-stone-400/40 pb-0.5",
-          accentColor: "border-stone-500 shadow-stone-950/60"
-        };
-      case 'NVA':
-        // Regular clean Rectangle with collar tab detailing
-        const isInfantry = card.unitType === 'Infantry' || card.type === 'Order';
-        const isAir = card.unitType === 'Aircraft';
-        return {
-          frameClass: "rounded border-2 border-[#821313]",
-          bgClass: isInfantry 
-            ? "bg-[#7c1414] bg-[radial-gradient(circle_at_center,_#901616_0%,_#540404_100%)] text-red-50" 
-            : isAir
-              ? "bg-[#115591] bg-[radial-gradient(circle_at_center,_#166BB7_0%,_#09345C_100%)] text-indigo-50"
-              : "bg-[#19163b] bg-[radial-gradient(circle_at_center,_#242054_0%,_#0B091B_100%)] text-slate-100",
-          bgStyle: undefined,
-          insigniaPosition: "top-1 left-1/2 -translate-x-1/2",
-          titleFont: "font-sans tracking-wide font-black text-yellow-50",
-          accentColor: "border-yellow-600/40 shadow-red-950/60"
-        };
-      case 'VC':
-        // Asymmetric handmade cloth armband divider
-        return {
-          frameClass: "rounded border-2 border-[#8d5d11]",
-          bgClass: "bg-gradient-to-b from-[#8C1313] via-[#101010] to-[#124B8C] text-stone-100",
-          bgStyle: undefined,
-          insigniaPosition: "top-1 left-1.5",
-          titleFont: "font-typewriter font-extrabold text-stone-100 uppercase",
-          accentColor: "border-yellow-500/30 shadow-black"
-        };
-      default:
-        return {
-          frameClass: "rounded border-2 border-stone-800",
-          bgClass: "bg-stone-950 text-stone-100",
-          bgStyle: undefined,
-          insigniaPosition: "top-1 left-7",
-          titleFont: "font-mono font-bold text-stone-100",
-          accentColor: "border-stone-700 shadow-black"
-        };
-    }
-  };
-
-  const getRarityGlow = (rarity: CardRarity) => {
-    switch (rarity) {
-      case 'Elite': return 'shadow-[0_0_20px_rgba(245,158,11,0.4)] border-amber-400/60';
-      case 'Rare': return 'shadow-[0_0_15px_rgba(6,182,212,0.3)] border-cyan-400/60';
-      case 'Uncommon': return 'shadow-[0_0_10px_rgba(34,197,94,0.2)] border-emerald-400/60';
-      default: return 'border-stone-800';
-    }
-  };
+  // removed old card rendering functions
 
   const getFactionCurrency = (fac: string) => {
     if (fac === 'US' || fac === 'ARVN' || fac === 'USA' || fac === 'US/ARVN') {
@@ -385,160 +162,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     return { symbol: '🎫', name: 'Ration Coupons', color: 'text-red-400 bg-red-950/90 border-red-500/40' };
   };
 
-  const renderCard = (card: Card, isMini: boolean = false, isSelected: boolean = false) => {
-    const currency = getFactionCurrency(card.faction);
-    const factionStyle = getFactionShellStyle(card);
-    const rarityStyle = getRarityGlow(card.rarity);
-    const isHQ = card.id === 'hq_player' || card.id === 'hq_opponent';
-    const isAffordable = isHQ || playerKredits >= card.k;
-
-    // Scale factors for board (isMini) vs hand (normal)
-    const cardClass = isMini 
-      ? `relative w-full h-full overflow-hidden cursor-pointer shadow-xl transition-all duration-300 flex flex-col justify-between ${factionStyle.frameClass} ${
-          isSelected 
-            ? 'border-yellow-400 ring-2 ring-yellow-400/50 z-20 shadow-2xl scale-102 font-mono' 
-            : `${rarityStyle} bg-stone-900/90`
-        }` 
-      : `relative flex-shrink-0 h-[17vh] xs:h-[18vh] sm:h-[19vh] lg:h-[20vh] aspect-[3/4.2] overflow-hidden cursor-pointer shadow-xl transition-all duration-300 transform scale-100 hover:scale-[1.12] hover:-translate-y-2 flex flex-col justify-between ${factionStyle.frameClass} ${
-          isSelected
-            ? 'border-cyan-500 ring-2 ring-cyan-500/50 scale-103 bg-stone-900 shadow-2xl z-40'
-            : isAffordable 
-              ? `${rarityStyle} hover:border-amber-500 hover:shadow-[0_10px_25px_rgb(0,0,0,0.75)]`
-              : 'grayscale brightness-75 opacity-70 cursor-not-allowed border-stone-900'
-        }`;
-
-    const badgeSymbolSize = isMini ? 'text-[8px] px-1 py-0.5' : 'text-xs px-1.5 py-0.5';
-    const badgeTypeSize = isMini ? 'text-[6px] px-0.5 bg-stone-950/90 text-stone-400' : 'text-[8.5px] px-1.5 bg-stone-950/90 text-stone-400';
-    const textGap = isMini ? 'p-1 gap-0.5' : 'p-2 gap-1.5';
-    const titleSize = isMini ? 'text-[8px] sm:text-[9px]' : 'text-xs sm:text-sm';
-    const opCostSize = isMini ? 'text-[6.5px]' : 'text-[9.5px]';
-    const abilitySize = isMini ? 'text-[6px] sm:text-[7px] leading-tight line-clamp-1 h-3 min-h-0 border-t border-stone-850/40 my-0.5 pt-0.5' : 'text-[10px] sm:text-xs font-typewriter leading-tight line-clamp-3 min-h-[36px] my-1 border-t border-stone-850/50 pt-1.5 text-stone-350';
-    const statsBoxSize = isMini ? 'text-[8px] sm:text-[9.5px] py-0 border-stone-250 font-bold' : 'text-[11px] sm:text-sm py-0.5 border-stone-300 font-bold';
-    const statsDivClass = isMini ? 'grid grid-cols-3 bg-stone-100 text-stone-950 border rounded shadow-xs items-center divide-x divide-stone-250 py-0.5' : 'grid grid-cols-3 bg-stone-100 text-stone-950 border rounded shadow-lg items-center divide-x divide-stone-300 py-1';
-
-    const motionProps = isMini 
-      ? {
-          initial: { scale: 1.4, y: -25, opacity: 0 },
-          animate: { scale: 1, y: 0, opacity: 1 },
-          transition: { type: "spring", stiffness: 350, damping: 16 }
-        }
-      : {};
-
-    return (
-      <motion.div 
-        onClick={(e) => {
-          if (isMini) {
-            e.stopPropagation();
-          }
-          setDetailedCard(card);
-          if (!isMini) {
-            handleSelectCard(card);
-          }
-        }}
-        className={cardClass}
-        {...motionProps}
-      >
-        {/* Dynamic Faction Insignia Overlay (SSI / Branch Badge) */}
-        {!isHQ && (
-          <div className={`absolute pointer-events-none select-none z-20 ${factionStyle.insigniaPosition} ${isMini ? 'scale-75 top-[1.5vh]' : 'scale-100 top-2'} opacity-90`}>
-            {card.faction === 'US' && renderUS_SSI(card, isMini)}
-            {card.faction === 'ARVN' && renderARVN_badge(card, isMini)}
-            {card.faction === 'NVA' && renderNVA_BranchInsignia(card, isMini)}
-            {card.faction === 'VC' && card.type === 'Order' && renderVCMedallion(card, isMini)}
-          </div>
-        )}
-
-        {/* Top Bar Overlays with Currency Badge */}
-        {!isHQ && (
-          <div className={`absolute select-none pointer-events-none ${isMini ? 'top-0.5 left-0.5' : 'top-1 left-1'} z-10`}>
-            <span className={`font-black rounded border shadow-md font-mono ${badgeSymbolSize} ${currency.color}`}>
-              {currency.symbol}{card.k}
-            </span>
-          </div>
-        )}
-        <div className={`absolute select-none pointer-events-none ${isMini ? 'top-0.5 right-0.5' : 'top-1 right-1'} z-10`}>
-          <span className={`uppercase tracking-widest border border-stone-850 rounded font-black font-mono ${badgeTypeSize} ${
-            isHQ 
-              ? card.faction === 'US' 
-                ? 'bg-amber-950/95 border-amber-500/50 text-amber-400' 
-                : 'bg-red-950/95 border-red-500/50 text-red-400'
-              : ''
-          }`}>
-            {isHQ ? 'HQ SITE' : card.type}
-          </span>
-        </div>
-
-        {/* Poster Artwork Render with specific historical styling filters */}
-        <div className={`aspect-[4/3] w-full border-b border-stone-950 shrink-0 select-none pointer-events-none relative overflow-hidden ${
-          card.faction === 'VC' ? 'grayscale brightness-110 sepia-[0.3]' : 
-          card.faction === 'ARVN' ? 'contrast-[1.1] brightness-[0.95] sepia-[0.2]' : ''
-        }`}>
-          <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
-          {/* Faction Overlay Scratches/Dents */}
-          <div className="absolute inset-0 opacity-15 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/dust.png')]" />
-
-          {/* Absolute overlays for NVA / VC that previously pushed stats down */}
-          {card.faction === 'NVA' && !isHQ && (
-            <div className={`absolute z-30 shadow-md ${isMini ? 'bottom-0.5 left-0.5 scale-[0.8] origin-bottom-left' : 'bottom-1 left-1.5'}`}>
-              {renderNVA_CollarTab(card, isMini)}
-            </div>
-          )}
-
-          {card.faction === 'VC' && !isHQ && (
-            <div className={`absolute bottom-0 left-0 right-0 z-30 flex overflow-hidden border-t border-yellow-500/30 select-none ${isMini ? 'h-1.5' : 'h-2.5'}`}>
-              <div className="w-1/2 bg-[#B81D1D]/90" />
-              <div className="w-1/2 bg-[#1d52b8]/90" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`${isMini ? 'text-[5px]' : 'text-[8.5px]'} text-yellow-400 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]`}>★</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Stats HUD footer */}
-        <div 
-          style={factionStyle.bgStyle}
-          className={`${textGap} ${factionStyle.bgClass} flex-grow flex flex-col justify-between items-stretch select-none border-t border-white/5`}
-        >
-          {/* Faction Header Banner details */}
-          <div className="pointer-events-none">
-            <div className={`truncate tracking-wide leading-tight ${factionStyle.titleFont} ${titleSize}`}>
-              {card.name}
-            </div>
-            {/* Operation/Action Cost */}
-            <div className={`uppercase font-black opacity-85 tracking-wider font-mono ${opCostSize} ${card.faction === 'ARVN' ? 'text-blue-900 font-bold' : 'text-amber-500 text-opacity-90'}`}>
-              Op Cost: {card.o} {currency.symbol}
-            </div>
-          </div>
-
-          {/* Card ability in small typewriter script */}
-          <p className={`font-typewriter select-none pointer-events-none ${abilitySize} ${card.faction === 'ARVN' ? 'text-stone-850 font-medium' : 'text-stone-300'}`}>
-            {card.ability}
-          </p>
-
-          {/* Bottom stats row for units, or action label for orders */}
-          {card.type === 'Unit' ? (
-            <div className={`${statsDivClass} font-mono select-none z-10 shrink-0 pointer-events-none ${card.faction === 'ARVN' ? 'bg-stone-50 border-stone-400 text-stone-950 font-extrabold' : ''}`}>
-              {/* Attack */}
-              <span className={`text-red-700 flex items-center justify-center gap-0.5 ${statsBoxSize}`}>{card.atk}</span>
-              {/* Class Icon */}
-              <span className="text-[7px] flex items-center justify-center py-0">{getUnitClassSymbol(card)}</span>
-              {/* Defense */}
-              <span className={`text-emerald-800 flex items-center justify-center gap-0.5 ${statsBoxSize}`}>{card.def}</span>
-            </div>
-          ) : (
-            <div className={`text-center py-0.2 uppercase tracking-widest rounded shadow-sm select-none shrink-0 border-opacity-40 font-mono font-bold pointer-events-none ${isMini ? 'text-[5.5px]' : 'text-[8px]'} ${
-              card.faction === 'NVA' ? 'bg-[#901616] border-red-500/40 text-red-50' : 
-              card.faction === 'VC' ? 'bg-[#ffcc00]/20 border-[#ffcc00]/40 text-[#ffcc00]' : 
-              card.faction === 'ARVN' ? 'bg-stone-400/40 border-stone-500 text-stone-900 font-black' : 'bg-cyan-950/70 border-cyan-800/40 text-cyan-400'
-            }`}>
-              ⚡ TACTICAL DIRECTIVE
-            </div>
-          )}
-        </div>
-      </motion.div>
-    );
-  };
+  // renderCard removed in favor of CardFrame
 
   // Mute toggle
   const handleToggleMute = () => {
@@ -2932,7 +2556,11 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                             className={`relative h-full max-h-[17vh] aspect-[3/3.8] mx-auto flex flex-col items-center justify-center rounded-lg border transition-all duration-300 cursor-pointer touch-none ${cellStatusClass}`}
                           >
                             {slot ? (
-                              renderCard(slot, true)
+                              <CardFrame 
+                                card={slot} 
+                                width={Math.min(90, (windowWidth - 32) / 5)} 
+                                onClick={(e) => { e.stopPropagation(); setDetailedCard(slot); }} 
+                              />
                             ) : (
                               <div className="flex flex-col items-center select-none pointer-events-none gap-0.5">
                                 {isEligibleMove ? (
@@ -3011,9 +2639,18 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                         transition: { type: 'spring', stiffness: 450, damping: 20 } 
                       }}
                       transition={{ type: 'spring', stiffness: 130, damping: 16 }}
-                      className="relative flex-shrink-0 h-full aspect-[3/4.2] focus:outline-none touch-none cursor-pointer"
+                      className="relative flex-shrink-0 focus:outline-none touch-none cursor-pointer"
                     >
-                      {renderCard(card, false, selectedOrderCard?.id === card.id)}
+                      <CardFrame 
+                       card={card} 
+                       width={115 * scaleFactor} 
+                       isSelected={selectedOrderCard?.id === card.id} 
+                       onClick={() => {
+                         setDetailedCard(card);
+                         handleSelectCard(card);
+                       }}
+                       isDisabled={!(card.id === 'hq_player' || card.id === 'hq_opponent' || playerKredits >= card.k)}
+                     />
                     </motion.div>
                   );
                 })}
@@ -3279,12 +2916,10 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 left: activeDrag.currentX, 
                 top: activeDrag.currentY,
                 transform: 'translate(-50%, -50%) rotate(3deg) scale(1.05)',
-                width: '120px',
-                height: '168px'
               }}
               className="opacity-90 shadow-2xl z-[100]"
             >
-              {renderCard(activeDrag.card, false)}
+              <CardFrame card={activeDrag.card} width={120 * scaleFactor} />
             </div>
           )}
         </div>

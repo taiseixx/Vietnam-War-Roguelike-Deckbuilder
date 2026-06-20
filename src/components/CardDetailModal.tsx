@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Card, Faction } from '../types';
 import { PropagandaPoster } from './PropagandaPoster';
+import { CardFrame } from './CardFrame';
 import { X, Globe, Shield, Swords, ShieldAlert, Award, Compass } from 'lucide-react';
 
 interface CardDetailModalProps {
@@ -62,69 +63,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, onClose 
 
         {/* LEFT VIEW: ENLARGED AUTHENTIC CARD VIEW */}
         <div className="p-6 md:p-8 flex items-center justify-center bg-stone-950/60 md:w-[45%] border-b md:border-b-0 md:border-r border-stone-850">
-          <div className="relative w-52 h-76 md:w-56 md:h-80 rounded-xl overflow-hidden border-2 border-stone-700 bg-stone-950 shadow-2xl flex flex-col justify-between">
-            {/* Top Bar Overlay */}
-            {!isHQ && (
-              <div className="absolute top-2 left-2 z-10 flex gap-2">
-                <span className={`text-[11px] font-black px-2 py-0.5 rounded border shadow-lg ${currency.color}`}>
-                  {currency.symbol}{card.k}
-                </span>
-              </div>
-            )}
-            <div className="absolute top-2 right-2 z-10">
-              <span className={`text-[8px] px-1.5 py-0.5 border rounded font-black shadow-lg font-mono uppercase tracking-widest ${
-                isHQ 
-                  ? card.faction === 'US' 
-                    ? 'bg-amber-950/95 border-amber-500/50 text-amber-400' 
-                    : 'bg-red-950/95 border-red-500/50 text-red-400'
-                  : 'bg-stone-950/90 border-stone-850 text-stone-400'
-              }`}>
-                {isHQ ? 'HQ SITE' : card.type}
-              </span>
-            </div>
-
-            {/* Poster Artwork */}
-            <div className="aspect-[4/3] w-full border-b border-stone-950 shrink-0">
-              <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
-            </div>
-
-            {/* Stats body */}
-            <div className="p-3 bg-stone-900 flex-grow flex flex-col justify-between items-stretch gap-1">
-              <div>
-                <h3 className="font-extrabold text-stone-100 text-xs md:text-sm font-sans tracking-wide leading-tight">
-                  {card.name}
-                </h3>
-                {/* Operation Cost */}
-                {!isHQ ? (
-                  <div className="text-[9px] text-amber-500 uppercase font-black opacity-90 mt-1 tracking-wider">
-                    Op Cost: {card.o} {currency.symbol}
-                  </div>
-                ) : (
-                  <div className="text-[9px] text-amber-500 uppercase font-black opacity-90 mt-1 tracking-wider">
-                    {card.faction === 'US' ? 'Saigon Command Zone' : 'Hanoi Front Sector'}
-                  </div>
-                )}
-              </div>
-
-              {/* Description Block */}
-              <p className="text-[9.5px] text-stone-300 font-typewriter leading-tight line-clamp-3 min-h-[38px] my-1 border-t border-stone-850/50 pt-1.5">
-                {card.ability}
-              </p>
-
-              {/* Stats Bar */}
-              {card.type === 'Unit' ? (
-                <div className="grid grid-cols-3 bg-stone-100 text-stone-950 font-black text-center text-[11px] border border-stone-300 rounded-md shadow-md items-center divide-x divide-stone-300 py-0.5 z-10 select-none">
-                  <span className="text-red-700 flex items-center justify-center gap-0.5 font-extrabold">{card.atk}</span>
-                  <span className="text-[9px] flex items-center justify-center py-0.5">{getUnitClassSymbol(card)}</span>
-                  <span className="text-emerald-800 flex items-center justify-center gap-0.5 font-extrabold">{card.def}</span>
-                </div>
-              ) : (
-                <div className="text-center py-0.5 bg-cyan-950/70 border border-cyan-800/40 text-cyan-400 text-[8.5px] font-black uppercase tracking-widest rounded shadow-sm">
-                  ⚡ TACTICAL DIRECTIVE
-                </div>
-              )}
-            </div>
-          </div>
+          <CardFrame card={card} width={230} isDetailed={true} showBadge={true} />
         </div>
 
         {/* RIGHT VIEW: RICH SPECS DETAILED LIST */}

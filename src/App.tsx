@@ -44,7 +44,21 @@ export default function App() {
     const savedSession = loadCampaignState();
     if (savedSession) {
       setCampaignState(savedSession.state);
-      setActiveScreen(savedSession.screen);
+
+      // Rehydrate the actual node object or reset to map
+      let updatedScreen = savedSession.screen;
+      if (savedSession.state.activeBattleNode) {
+        const matchingNode = savedSession.state.nodes.find(n => n.id === savedSession.state.activeBattleNode);
+        if (matchingNode) {
+          setActiveBattleNode(matchingNode);
+        } else {
+          updatedScreen = 'campaign_map';
+        }
+      } else if (updatedScreen === 'battle') {
+        updatedScreen = 'campaign_map';
+      }
+
+      setActiveScreen(updatedScreen);
       sound.playRadioStatic();
     }
   }, []);
@@ -139,6 +153,7 @@ export default function App() {
   const handleSelectNode = (node: CampaignNode) => {
     if (node.type === 'Combat' || node.type === 'Elite' || node.type === 'Boss') {
       setActiveBattleNode(node);
+      setCampaignState(prev => ({ ...prev, activeBattleNode: node.id }));
       setActiveScreen('battle');
     } else if (node.type === 'Event') {
       setActiveEventNode(node);
@@ -257,7 +272,9 @@ export default function App() {
     setCampaignState((prev) => ({
       ...prev,
       gold: prev.gold + goldReward,
+      activeBattleNode: null,
     }));
+    setActiveBattleNode(null);
     setActiveScreen('campaign_map');
     // Open reward card draft!
     triggerDraftPool();
