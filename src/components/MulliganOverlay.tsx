@@ -79,7 +79,7 @@ export const MulliganOverlay: React.FC<MulliganOverlayProps> = ({
 
               {/* Poster Artwork render */}
               <div className="aspect-[4/3] w-full">
-                <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} />
+                <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
               </div>
 
               {/* Card Stats & Details */}

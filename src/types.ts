@@ -41,6 +41,11 @@ export type DeployEffect = Effect<
   'addArmorToHQ' | 'clearEnemyTraps' | 'interceptAircraft'
 >;
 
+export interface ArtTemplateConfig {
+  template: 'infantry' | 'tank' | 'aircraft' | 'artillery' | 'order' | 'countermeasure';
+  overlayIcon?: 'star' | 'crosshairs' | 'shield' | 'wings' | 'bomb' | 'skull' | 'radio' | 'flag' | 'none';
+}
+
 export interface Card {
   id: string;
   name: string;
@@ -55,6 +60,7 @@ export interface Card {
   rarity: CardRarity;
   ability: string;
   artworkKeyword: string; // Used for rendering gorgeous poster artwork
+  artConfig?: ArtTemplateConfig; // Data-driven art pipeline config (CR-003)
   isArmored?: boolean; // Trait tĩnh để kiểm tra xe bọc thép
   isAirmobile?: boolean; // Trait tĩnh bỏ qua summoning sickness
   combatEffects?: CombatEffect[];

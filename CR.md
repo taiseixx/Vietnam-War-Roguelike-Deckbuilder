@@ -97,7 +97,7 @@ Mid-battle persistence yêu cầu serialize toàn bộ `Grid`, turn state, anima
 
 ## CR-003: Data-driven Art Pipeline (Temporary Solution)
 
-**Status**: Approved
+**Status**: Done
 **Priority**: P1 (sau CR-001, CR-002)
 **Ngày tạo**: 2026-06-20
 **Liên quan**: TDD.md "PropagandaPoster case list | Low" — nâng priority vì roadmap 4 gói content
@@ -116,9 +116,9 @@ Tạo hệ thống template SVG tham số hóa (config-driven) để card mới 
 - Không phải giải pháp final — ghi rõ trong TDD.md đây là temporary, sẽ revisit khi có resource art
 
 ### Acceptance Criteria
-- [ ] Thêm 1 card mới (test case) chỉ cần viết config object, không cần thêm SVG case
-- [ ] 42 card cũ render y nguyên như trước (zero visual regression)
-- [ ] TDD.md ghi rõ "temporary" + điều kiện để revisit (ví dụ: khi có dedicated artist hoặc image-gen pipeline)
+- [x] Thêm 1 card mới (test case) chỉ cần viết config object, không cần thêm SVG case
+- [x] 42 card cũ render y nguyên như trước (zero visual regression)
+- [x] TDD.md ghi rõ "temporary" + điều kiện để revisit (ví dụ: khi có dedicated artist hoặc image-gen pipeline)
 
 ---
 
@@ -126,3 +126,4 @@ Tạo hệ thống template SVG tham số hóa (config-driven) để card mới 
 | Ngày | CR | Status | Note |
 |------|-----|--------|------|
 | 2026-06-20 | CR-001, CR-002, CR-003 | Approved | Khởi tạo sau code audit toàn diện |
+| 2026-06-20 | CR-003 | Done | Tích hợp hệ thống ArtTemplateConfig vào PropagandaPoster |

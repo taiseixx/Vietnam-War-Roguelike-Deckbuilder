@@ -354,6 +354,7 @@ interface PropagandaPosterProps {
   keyword: string;    // artworkKeyword từ Card data
   faction: CardFaction; // Quyết định color palette
   name: string;       // Dùng cho fallback display
+  artConfig?: ArtTemplateConfig; // Config dạng Data-driven SVG templates (Giảm tải switch-case)
 }
 ```
 
@@ -365,7 +366,17 @@ bgAccent    = isEastern ? '#F9C80E' : '#CBBF99';  // Vàng Sao vs Khaki
 textColor   = isEastern ? '#F9C80E' : '#E8E5DA';  // Text contrast
 ```
 
-**Keyword → SVG Cases (42 cases):**
+**Hệ thống Template Tạm Thời (Data-driven Art Pipeline - CR-003):** 
+Card mới sinh ra ở Gói 2+ không cần viết thêm case SVG. Chỉ cần nhúng config:
+```typescript
+interface ArtTemplateConfig {
+  template: 'infantry' | 'tank' | 'aircraft' | 'artillery' | 'order' | 'countermeasure';
+  overlayIcon?: 'star' | 'crosshairs' | 'shield' | 'wings' | 'bomb' | 'skull' | 'radio' | 'flag';
+}
+```
+*Ghi chú: Lộ trình này là "temporary fallback" giúp scale số lượng card mà không bottleneck khâu vẽ SVG. Sẽ revisit nếu có dedicated artist resource ở Gói DLC tương lai.*
+
+**Keyword → SVG Cases Truyền Thống (Giữ nguyên cho core 42 cards ban đầu):**
 
 | Keyword | Card | SVG Elements |
 |---------|------|-------------|
@@ -779,16 +790,16 @@ Dự án được sinh ra và host trên **Google AI Studio**. Một số config
 |-------|----------|-------|
 | `Battlefield.tsx` quá lớn | Medium | 2200+ dòng — nên tách ra `useGameState`, `useCombatEngine`, `useAIOpponent` hooks |
 | AI Opponent đơn giản | Low | Greedy AI — chưa có pathfinding thực sự hoặc threat assessment |
-| No persistence | Medium | Game state không được save vào localStorage → refresh = mất progress |
+| ~~No persistence~~ | ~~Medium~~ | **[CR-002 Solved]** Game state được save an toàn vào localStorage |
 | Grid hardcoded 3×5 | Low | Grid size không configurable — khó mở rộng nếu cần 5×5 |
-| PropagandaPoster case list | Low | Mỗi card mới phải thêm SVG case thủ công → cân nhắc data-driven approach |
-| No unit tests | High | Toàn bộ game logic chưa có test coverage |
+| ~~PropagandaPoster case list~~ | ~~Low~~ | **[CR-003 Mitigated]** Tích hợp Data-driven Pipeline ArtConfig thay vì SVG Hardcoding toàn phần |
+| No unit tests | High | Đã có combat matrices unit tests, nhưng behavior hooks vẫn thiếu |
 | Type assertion `(window as any)` | Low | Trong sound.ts cho webkitAudioContext |
 
 ### Refactoring Targets (Theo Độ Ưu Tiên)
 
-1. **High**: Thêm `localStorage` persistence cho `campaignState`
+1. ~~**High**: Thêm `localStorage` persistence cho `campaignState`~~ (Done)
 2. **High**: Tách Battlefield thành sub-hooks (`useCombatEngine.ts`, `useAIOpponent.ts`)
-3. **Medium**: Thêm unit tests cho combat calculation functions
+3. **Medium**: Thêm full unit tests cho combat calculation functions 
 4. **Medium**: Cải thiện AI opponent với basic threat scoring
-5. **Low**: Data-driven PropagandaPoster (SVG config JSON thay vì switch-case)
+5. ~~**Low**: Data-driven PropagandaPoster (SVG config JSON thay vì switch-case)~~ (Done via CR-003)

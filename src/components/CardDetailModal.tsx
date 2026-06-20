@@ -85,7 +85,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, onClose 
 
             {/* Poster Artwork */}
             <div className="aspect-[4/3] w-full border-b border-stone-950 shrink-0">
-              <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} />
+              <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
             </div>
 
             {/* Stats body */}

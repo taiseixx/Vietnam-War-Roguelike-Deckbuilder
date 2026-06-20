@@ -621,5 +621,26 @@ export const CARD_DATABASE: Card[] = [
     rarity: 'Rare',
     ability: 'General Mobilization: Fully heals the defense (DEF) of all deployed ARVN units back to their original maximums.',
     artworkKeyword: 'order_mobilize'
+  },
+  // ==================== NEW BATCH - CR-003 TEST CARDS ====================
+  {
+    id: 'nva_t54_tank',
+    name: 'T-54 Main Battle Tank',
+    faction: 'NVA',
+    k: 5,
+    o: 1,
+    atk: 5,
+    def: 5,
+    maxDef: 5,
+    type: 'Unit',
+    unitType: 'Tank',
+    rarity: 'Rare',
+    ability: 'Heavy Armor. Overkill damage rolls to HQ.',
+    artworkKeyword: 'use_template',
+    isArmored: true,
+    artConfig: {
+      template: 'tank',
+      overlayIcon: 'star'
+    }
   }
 ];

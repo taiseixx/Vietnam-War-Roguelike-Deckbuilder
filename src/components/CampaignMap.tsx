@@ -424,7 +424,7 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
                   {card.rarity}
                 </div>
                 <div className="aspect-[4/3] w-full">
-                  <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} />
+                  <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
                 </div>
                 <div className="p-3 bg-stone-950 font-mono text-xs text-stone-300 border-t border-stone-850">
                   <div className="flex justify-between items-start gap-1 mb-1">
@@ -484,7 +484,7 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
                   </div>
                 )}
                 <div className="aspect-[4/3] w-full mb-2">
-                  <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} />
+                  <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
                 </div>
                 <div className="flex justify-between font-bold text-amber-100 mb-1 truncate text-[11px]">
                   <span>{card.name}</span>

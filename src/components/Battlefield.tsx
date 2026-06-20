@@ -473,7 +473,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           card.faction === 'VC' ? 'grayscale brightness-110 sepia-[0.3]' : 
           card.faction === 'ARVN' ? 'contrast-[1.1] brightness-[0.95] sepia-[0.2]' : ''
         }`}>
-          <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} />
+          <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} artConfig={card.artConfig} />
           {/* Faction Overlay Scratches/Dents */}
           <div className="absolute inset-0 opacity-15 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/dust.png')]" />
 
