@@ -15,11 +15,11 @@
 
 | ID | Mô tả lỗi | Phạm vi ảnh hưởng | Trạng thái hiện tại | Lượt xác minh |
 | :--- | :--- | :--- | :--- | :--- |
-| **BUG-001** | 5th Special Forces Action Override | Gameplay / Ability Action | Fixed - Verification Pending | `[3/5]` |
-| **BUG-002** | 126th SpecOps Boundary Directionality Bug | Pathfinding / Movement | Fixed - Verification Pending | `[3/5]` |
-| **BUG-003** | HQ Armor Overkill Calculation Bypass | Battle Engine / Damage calc | Fixed - Verification Pending | `[3/5]` |
-| **BUG-004** | Safari Private Mode LocalStorage Quota Exceeded Crash | Client persistence | Fixed - Verification Pending | `[3/5]` |
-| **BUG-005** | Mobile Viewport / Iframe Mulligan Stretched & Height Overflow Bug | UI/UX / Mulligan Overlay / CardFrame | **Fixed - Verification Pending** | `[1/5]` |
+| **BUG-001** | 5th Special Forces Action Override | Gameplay / Ability Action | Fixed - Verification Pending | `[4/5]` |
+| **BUG-002** | 126th SpecOps Boundary Directionality Bug | Pathfinding / Movement | Fixed - Verification Pending | `[4/5]` |
+| **BUG-003** | HQ Armor Overkill Calculation Bypass | Battle Engine / Damage calc | Fixed - Verification Pending | `[4/5]` |
+| **BUG-004** | Safari Private Mode LocalStorage Quota Exceeded Crash | Client persistence | Fixed - Verification Pending | `[4/5]` |
+| **BUG-005** | Mobile Viewport / Iframe Mulligan Stretched & Height Overflow Bug | UI/UX / Mulligan Overlay / CardFrame | **Fixed - Verification Pending** | `[2/5]` |
 
 ---
 
