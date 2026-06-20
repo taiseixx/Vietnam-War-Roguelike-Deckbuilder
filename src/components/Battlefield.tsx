@@ -6,6 +6,12 @@ import { CARD_DATABASE } from '../data/cards';
 import { generateDynamicDeck } from '../utils/deck';
 import tableBg from '../assets/images/wood_battlefield_table_1781636718604.jpg';
 
+import {
+  resolveCombatEngagement as engineResolveCombat,
+  checkMoveTriggers as engineCheckMoveTriggers,
+  executeDeployEffects as engineExecuteDeployEffects
+} from '../logic/combatEngine';
+
 import { sound } from '../utils/sound';
 import { PropagandaPoster } from './PropagandaPoster';
 import { MulliganOverlay } from './MulliganOverlay';
@@ -665,187 +671,26 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     nextGrid: Grid,
     isPlayerAttacking: boolean
   ) => {
-    const isAttackerArmor = ['us_m113_acav', 'us_m48_patton', 'arvn_7th_armoured'].includes(attacker.id);
-    const isDefenderArmor = ['us_m113_acav', 'us_m48_patton', 'arvn_7th_armoured'].includes(defender.id);
+    const result = engineResolveCombat(attacker, defender, attPos, defPos, nextGrid, isPlayerAttacking);
 
-    // Initial Attack values
-    let attAtk = attacker.atk;
-    let defAtk = defender.atk;
-
-    // 1. Synergy - 320th Steel Division (Heavy Armor Breakers: Deals +1 ATK vs armored units)
-    if (attacker.id === 'nva_320th_steel' && isDefenderArmor) {
-      attAtk += 1;
-      addLog(`ARMOR BREAKER: 320th Steel Division deals +1 ATK vs Armored ${defender.name}.`, 'BUFF');
+    // Apply state changes
+    if (result.playerHQDmg > 0) {
+      setPlayerHQ((prev) => Math.max(0, prev - result.playerHQDmg));
     }
-    if (defender.id === 'nva_320th_steel' && isAttackerArmor) {
-      defAtk += 1;
-      addLog(`ARMOR BREAKER: 320th Steel Division defends with +1 ATK vs Armored ${attacker.name}.`, 'BUFF');
+    if (result.opponentHQDmg > 0) {
+      setOpponentHQ((prev) => Math.max(0, prev - result.opponentHQDmg));
     }
 
-    // 2. Synergy - Heavy Machine Gun Team (Anti-Air Flak: Deals x2 damage to Helicopters / Aircraft units)
-    if (attacker.id === 'nva_hmg_team' && defender.unitType === 'Aircraft') {
-      attAtk *= 2;
-      addLog(`ANTI-AIR FLAK: Heavy Machine Gun Team deals x2 damage (${attAtk} ATK) vs Aircraft ${defender.name}!`, 'BUFF');
-    }
-    if (defender.id === 'nva_hmg_team' && attacker.unitType === 'Aircraft') {
-      defAtk *= 2;
-      addLog(`ANTI-AIR FLAK: Heavy Machine Gun Team defends with x2 damage (${defAtk} ATK) vs Aircraft ${attacker.name}!`, 'BUFF');
-    }
+    // Process logs
+    result.logs.forEach((log) => {
+      addLog(log.message, log.tag);
+    });
 
-    // 3. Synergy - 9th Riverines (+2 ATK inside row index 1 / Conflict Zone)
-    if (attacker.id === 'us_9th_riverines' && attPos.r === 1) {
-      attAtk += 2;
-      addLog(`SWAMP MASTERY: 9th Riverines gains +2 ATK in the Conflict Zone.`, 'BUFF');
-    }
-    if (defender.id === 'us_9th_riverines' && defPos.r === 1) {
-      defAtk += 2;
-      addLog(`SWAMP MASTERY: 9th Riverines defends with +2 ATK in the Conflict Zone.`, 'BUFF');
-    }
-
-    let attackerDef = attacker.def;
-    let defenderDef = defender.def;
-
-    // 4. Combat damage assignment & retaliation exemption
-    let attackerDmgTaken = defAtk;
-    let defenderDmgTaken = attAtk;
-
-    if (attacker.unitType === 'Artillery') {
-      attackerDmgTaken = 0; // artillery takes no retaliation when attacking
-    } else if (attacker.unitType === 'Aircraft') {
-      if (defender.unitType === 'Infantry') {
-        attackerDmgTaken = Math.ceil(defAtk * 0.5); // aircraft takes half damage from infantry
+    // Sync elements of nextGrid to caller reference
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        nextGrid[r][c] = result.nextGrid[r][c];
       }
-    }
-
-    if (defender.unitType === 'Artillery') {
-      attackerDmgTaken = 0; // cannot retaliate core melee
-    }
-
-    // 5. First-Strike AMBUSH Synergy (Local Guerrilla Cell): Always deals damage first, neutralizing melee
-    const isMelee = (u: GridUnit) => u.unitType === 'Infantry' || u.unitType === 'Tank';
-    let isAmbushTriggered = false;
-
-    if (defender.id === 'vc_guerrilla_cell' && isMelee(attacker) && attacker.unitType !== 'Aircraft' && attacker.unitType !== 'Artillery') {
-      isAmbushTriggered = true;
-      addLog(`AMBUSH! Local Guerrilla Cell triggers defensive first-strike vs ${attacker.name}!`, 'BUFF');
-      attackerDef -= attackerDmgTaken;
-      if (attackerDef > 0) {
-        defenderDef -= defenderDmgTaken;
-      } else {
-        addLog(`AMBUSH SUCCESS! ${attacker.name} was neutralized in the bush before returning fire.`, 'DEATH');
-        defenderDmgTaken = 0;
-      }
-    } else if (attacker.id === 'vc_guerrilla_cell' && isMelee(defender) && attacker.unitType !== 'Aircraft' && attacker.unitType !== 'Artillery') {
-      isAmbushTriggered = true;
-      addLog(`AMBUSH! Local Guerrilla Cell triggers offensive first-strike vs ${defender.name}!`, 'BUFF');
-      defenderDef -= defenderDmgTaken;
-      if (defenderDef > 0) {
-        attackerDef -= attackerDmgTaken;
-      } else {
-        addLog(`AMBUSH SUCCESS! Blockade ${defender.name} was eliminated before reacting.`, 'DEATH');
-        attackerDmgTaken = 0;
-      }
-    }
-
-    if (!isAmbushTriggered) {
-      // Escort - 7th Armored Cav (reduces ranged and incoming artillery/airstrike damage taken by 1)
-      const isRangedAttacker = attacker.unitType === 'Artillery' || attacker.unitType === 'Aircraft';
-      if (defender.id === 'arvn_7th_armoured' && isRangedAttacker) {
-        defenderDmgTaken = Math.max(0, defenderDmgTaken - 1);
-        addLog(`ESCORT: 7th Armored Cav heavy steel shield absorbs 1 ranged damage point.`, 'BUFF');
-      }
-      const isRangedDefender = defender.unitType === 'Artillery' || defender.unitType === 'Aircraft';
-      if (attacker.id === 'arvn_7th_armoured' && isRangedDefender) {
-        attackerDmgTaken = Math.max(0, attackerDmgTaken - 1);
-        addLog(`ESCORT: 7th Armored Cav heavy steel shield absorbs 1 ranged damage point.`, 'BUFF');
-      }
-
-      defenderDef -= defenderDmgTaken;
-      attackerDef -= attackerDmgTaken;
-    }
-
-    // 6. Synergy - M48 Patton (Overkill Excess damage direct to enemy HQ Base)
-    if (attacker.id === 'us_m48_patton' && defenderDef < 0) {
-      const overkill = Math.abs(defenderDef);
-      if (isPlayerAttacking) {
-        setOpponentHQ((prev) => Math.max(0, prev - overkill));
-        addLog(`OVERKILL! Allied M48 Patton blast ripples directly to Opponent HQ for ${overkill} damage!`, 'HQ');
-      } else {
-        setPlayerHQ((prev) => Math.max(0, prev - overkill));
-        addLog(`OVERKILL! Enemy M48 Patton blast ripples directly to player HQ for ${overkill} damage!`, 'HQ');
-      }
-    }
-
-    // Apply values to modified objects
-    attacker.def = attackerDef;
-    defender.def = defenderDef;
-
-    const spawnAcavSquad = (pos: { r: number; c: number }) => {
-      nextGrid[pos.r][pos.c] = {
-        id: 'us_acav_squad',
-        name: 'ACAV Squad',
-        faction: 'US',
-        k: 0,
-        o: 1,
-        atk: 2,
-        def: 2,
-        maxDef: 2,
-        type: 'Unit',
-        unitType: 'Infantry',
-        rarity: 'Common',
-        ability: 'Deployed from destroyed M113 ACAV.',
-        artworkKeyword: 'screaming_eagles',
-        instanceId: `acav-squad-${Date.now()}-${Math.random()}`,
-        hasMovedOrAttackedThisTurn: true,
-        hasMovedThisTurn: true,
-        hasAttackedThisTurn: true,
-        camouflage: false,
-        frozenTurns: 0,
-        armor: 0,
-        isAmphibious: false,
-      };
-      addLog(`ACAV RESCUE: ACAV Squad deployed from wreckage of destroyed M113 Armor Carrier.`, 'DEPLOY');
-    };
-
-    // 7. Resolve Defender demise
-    if (defenderDef <= 0) {
-      addLog(`${defender.name} was neutralized in direct engagement.`, 'DEATH');
-      nextGrid[defPos.r][defPos.c] = null;
-      if (defender.id === 'us_m113_acav') {
-        spawnAcavSquad(defPos);
-      }
-
-      // Special 'On Kill' Synergy - Green Beret (5th Special Forces: heals to full and unlocks another action)
-      if (attacker.id === 'us_5th_specops' && attackerDef > 0) {
-        attacker.def = attacker.maxDef;
-        attacker.hasMovedOrAttackedThisTurn = false;
-        attacker.hasMovedThisTurn = false;
-        attacker.hasAttackedThisTurn = false;
-        addLog(`GREEN BERETS: 5th Special Forces neutralized target, fully healed DEF, and gained extra turn movement action link!`, 'BUFF');
-      }
-    } else {
-      nextGrid[defPos.r][defPos.c] = defender;
-      // Battle Hardened - ARVN 1st Infantry gains permanently +1 ATK when surviving defending engagement
-      if (defender.id === 'arvn_1st_infantry' && defenderDef > 0) {
-        defender.baseAtk = (defender.baseAtk ?? defender.atk) + 1;
-        defender.atk = defender.baseAtk;
-        addLog(`BATTLE HARDENED: ARVN 1st Infantry survived attack, permanently gaining +1 ATK (Now ATK:${defender.atk})!`, 'BUFF');
-      }
-    }
-
-    // 8. Resolve Attacker demise
-    if (attackerDef <= 0) {
-      addLog(`${attacker.name} fell in the line of duty.`, 'DEATH');
-      nextGrid[attPos.r][attPos.c] = null;
-      if (attacker.id === 'us_m113_acav') {
-        spawnAcavSquad(attPos);
-      }
-    } else {
-      nextGrid[attPos.r][attPos.c] = {
-        ...attacker,
-        hasAttackedThisTurn: true,
-        hasMovedOrAttackedThisTurn: true
-      };
     }
   };
 
@@ -853,88 +698,42 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   // COMMON MOVE TRIGGERS - HANDLES MINES, SPECIAL POSITION SYNERGIES, AND DEMOLITION STRIKE
   // ==========================================
   const checkMoveTriggers = (r: number, c: number, activeUnit: GridUnit, nextGrid: Grid, isPlayerMoving: boolean) => {
-    if (!activeUnit) return;
+    const result = engineCheckMoveTriggers(
+      r,
+      c,
+      activeUnit,
+      nextGrid,
+      isPlayerMoving,
+      activeTraps,
+      faction,
+      playerSideFactions
+    );
 
-    // A. Punji / Ambush Trap Mine triggers
-    const isEnemyEnteringZone = r === 1 && !playerSideFactions.includes(activeUnit.faction);
-    const isPlayerEnteringZone = r === 1 && playerSideFactions.includes(activeUnit.faction);
-
-    // If Unit enters Conflict Zone (r === 1):
-    if (r === 1) {
-      if (isEnemyEnteringZone) {
-        // AI unit enters. Check if Player has active Amber trap
-        const isAmbushActive = activeTraps.some((t) => t.faction === faction && t.cardId === 'nva_trap_amber');
-        if (isAmbushActive) {
-          sound.playExplosion();
-          addLog(`BOOM! Countermeasure: "Trận địa Phục kích" triggers! Punji bamboo stakes hit ${activeUnit.name} for 3 DEF damage!`, 'ATTACK');
-          activeUnit.def -= 3;
-          setActiveTraps((traps) => traps.filter((t) => !(t.faction === faction && t.cardId === 'nva_trap_amber')));
-          
-          if (activeUnit.def <= 0) {
-            addLog(`Enemy ${activeUnit.name} was neutralized by Amber Trap.`, 'DEATH');
-            nextGrid[r][c] = null;
-            return;
-          } else {
-            nextGrid[r][c] = activeUnit;
-          }
-        }
-      } else if (isPlayerEnteringZone) {
-        // Player unit enters. Check if Opponent AI has active Amber trap
-        const isAmbushActive = activeTraps.some((t) => t.faction !== faction && t.cardId === 'nva_trap_amber');
-        if (isAmbushActive) {
-          sound.playExplosion();
-          addLog(`BOOM! Enemy Countermeasure: "Trận địa Phục kích" triggers! Punji spike traps hit ${activeUnit.name} for 3 DEF damage!`, 'ATTACK');
-          activeUnit.def -= 3;
-          setActiveTraps((traps) => traps.filter((t) => !(t.faction !== faction && t.cardId === 'nva_trap_amber')));
-          
-          if (activeUnit.def <= 0) {
-            addLog(`Allied ${activeUnit.name} fell to Punji stakes.`, 'DEATH');
-            nextGrid[r][c] = null;
-            return;
-          } else {
-            nextGrid[r][c] = activeUnit;
-          }
-        }
-      }
+    // Assign sound effects
+    if (result.soundEffect === 'explosion') {
+      sound.playExplosion();
     }
 
-    // B. Demolition Strike (126th SpecOps 'vc_126th_specops')
-    // AI moves Downward, reaches Row index 2 (Allied Base Support Row)
-    // OR Player NVA moves Upward, reaches Row index 0 (Opponent Base Support Row)
-    const isVCSpecOps = activeUnit.id === 'vc_126th_specops';
-    if (isVCSpecOps) {
-      const reachedTargetRow = isPlayerMoving ? (r === 0) : (r === 2);
-      if (reachedTargetRow) {
-        sound.playExplosion();
-        addLog(`DEMOLITION STRIKE! 126th SpecOps reached target Support Line. Commencing self-destruct operation...`, 'BUFF');
-        
-        // Find enemy Artillery or Aircraft unit on that row to destroy
-        let strikeTargetIndex = -1;
-        for (let idx = 0; idx < 5; idx++) {
-          const targetUnit = nextGrid[r][idx];
-          if (targetUnit && !playerSideFactions.includes(targetUnit.faction) === isPlayerMoving) {
-            if (targetUnit.unitType === 'Artillery' || targetUnit.unitType === 'Aircraft') {
-              strikeTargetIndex = idx;
-              break;
-            }
-          }
-        }
+    // Apply HQ damage
+    if (result.playerHQDmg > 0) {
+      setPlayerHQ((prev) => Math.max(0, prev - result.playerHQDmg));
+    }
+    if (result.opponentHQDmg > 0) {
+      setOpponentHQ((prev) => Math.max(0, prev - result.opponentHQDmg));
+    }
 
-        if (strikeTargetIndex !== -1) {
-          const victim = nextGrid[r][strikeTargetIndex]!;
-          addLog(`BOOM! Demolition satchel charge completely obliterated enemy secondary defense unit: ${victim.name}!`, 'DEATH');
-          nextGrid[r][strikeTargetIndex] = null;
-        } else {
-          addLog(`No valid Artillery or Aircraft found on Support Row. Saboteurs blew up local fuel depot instead (HQ takes 2 damage!).`, 'HQ');
-          if (isPlayerMoving) {
-            setOpponentHQ((prev) => Math.max(0, prev - 2));
-          } else {
-            setPlayerHQ((prev) => Math.max(0, prev - 2));
-          }
-        }
+    // Update active traps
+    setActiveTraps(result.activeTraps);
 
-        // Self-destruct 126th SpecOps!
-        nextGrid[r][c] = null;
+    // Process logs
+    result.logs.forEach((log) => {
+      addLog(log.message, log.tag);
+    });
+
+    // Sync elements of nextGrid to caller reference
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 5; col++) {
+        nextGrid[row][col] = result.nextGrid[row][col];
       }
     }
   };
@@ -1232,42 +1031,28 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
     sound.playDeploy();
 
-    if (card.id === 'us_combat_engineers') {
-      setPlayerHQArmor((a) => a + 3);
-      setActiveTraps((traps) => traps.filter((t) => t.faction !== 'NVA'));
-      addLog(`Combat Engineers cleared active guerrilla traps.`, 'BUFF');
-    }
+    const deployRes = engineExecuteDeployEffects(
+      card,
+      grid,
+      true,
+      activeTraps,
+      playerSideFactions,
+      opponentSideFactions
+    );
 
-    const nextGrid = grid.map((row) => [...row]);
-
-    // AIR SUPREMACY - MiG-17 Pilot (Deals 4 damage to enemy Aircraft on deploy)
-    if (card.id === 'nva_mig17_pilot') {
-      let targetUnit: GridUnit | null = null;
-      let targetPos: {r: number, c: number} | null = null;
-      for (let tr = 0; tr < 3; tr++) {
-        for (let tc = 0; tc < 5; tc++) {
-          const u = nextGrid[tr][tc];
-          if (u && opponentSideFactions.includes(u.faction) && u.unitType === 'Aircraft') {
-            targetUnit = u;
-            targetPos = { r: tr, c: tc };
-            break;
-          }
-        }
-      }
-      if (targetUnit && targetPos) {
-        sound.playExplosion();
-        targetUnit.def -= 4;
-        addLog(`AIR SUPREMACY! MiG-17 Fighter Pilot intercepted and struck aircraft ${targetUnit.name} for 4 damage!`, 'ATTACK');
-        if (targetUnit.def <= 0) {
-          addLog(`Enemy ${targetUnit.name} was shot down in the sky!`, 'DEATH');
-          nextGrid[targetPos.r][targetPos.c] = null;
-        } else {
-          nextGrid[targetPos.r][targetPos.c] = targetUnit;
-        }
-      } else {
-        addLog(`No enemy aircraft on board for MiG-17 Pilot to intercept upon deployment.`, 'SYSTEM');
-      }
+    if (deployRes.soundEffect === 'explosion') {
+      sound.playExplosion();
     }
+    if (deployRes.playerHQArmorDiff > 0) {
+      setPlayerHQArmor((a) => a + deployRes.playerHQArmorDiff);
+    }
+    if (deployRes.opponentHQArmorDiff > 0) {
+      setOpponentHQArmor((a) => a + deployRes.opponentHQArmorDiff);
+    }
+    setActiveTraps(deployRes.activeTraps);
+    deployRes.logs.forEach((log) => addLog(log.message, log.tag));
+
+    const nextGrid = deployRes.nextGrid;
 
     const newUnit: GridUnit = {
       ...card,
@@ -2258,32 +2043,31 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                     isAmphibious: card.id === 'nva_803rd_riverine' || card.id === 'us_9th_riverines' || card.ability?.toLowerCase().includes('amphibious'),
                   };
 
-                  // AIR SUPREMACY - MiG-17 Pilot (Deals 4 damage to enemy Aircraft on deploy)
-                  if (card.id === 'nva_mig17_pilot') {
-                    let targetUnit: GridUnit | null = null;
-                    let targetPos: {r: number, tc: number} | null = null;
-                    for (let tr = 0; tr < 3; tr++) {
-                      for (let tc = 0; tc < 5; tc++) {
-                        const u = nextGrid[tr][tc];
-                        if (u && playerSideFactions.includes(u.faction) && u.unitType === 'Aircraft') {
-                          targetUnit = u;
-                          targetPos = { r: tr, tc };
-                          break;
-                        }
-                      }
-                    }
-                    if (targetUnit && targetPos) {
-                      sound.playExplosion();
-                      targetUnit.def -= 4;
-                      addLog(`AIR SUPREMACY! Enemy MiG-17 Fighter Pilot has intercepted and struck your aircraft ${targetUnit.name} during deployment for 4 DEF damage!`, 'ATTACK');
-                      if (targetUnit.def <= 0) {
-                        addLog(`Your aircraft ${targetUnit.name} was shot down!`, 'DEATH');
-                        nextGrid[targetPos.r][targetPos.tc] = null;
-                      } else {
-                        nextGrid[targetPos.r][targetPos.tc] = targetUnit;
-                      }
-                    } else {
-                      addLog(`No enemy aircraft on board for MiG-17 Pilot to intercept upon deployment.`, 'SYSTEM');
+                  const deployRes = engineExecuteDeployEffects(
+                    card,
+                    nextGrid,
+                    false,
+                    activeTraps,
+                    playerSideFactions,
+                    opponentSideFactions
+                  );
+
+                  if (deployRes.soundEffect === 'explosion') {
+                    sound.playExplosion();
+                  }
+                  if (deployRes.playerHQArmorDiff > 0) {
+                    setPlayerHQArmor((a) => a + deployRes.playerHQArmorDiff);
+                  }
+                  if (deployRes.opponentHQArmorDiff > 0) {
+                    setOpponentHQArmor((a) => a + deployRes.opponentHQArmorDiff);
+                  }
+                  setActiveTraps(deployRes.activeTraps);
+                  deployRes.logs.forEach((log) => addLog(log.message, log.tag));
+
+                  // Sync grid from deploy result
+                  for (let tr = 0; tr < 5; tr++) {
+                    for (let tc = 0; tc < 5; tc++) {
+                      nextGrid[tr][tc] = deployRes.nextGrid[tr][tc];
                     }
                   }
 

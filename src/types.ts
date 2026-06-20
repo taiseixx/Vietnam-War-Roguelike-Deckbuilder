@@ -6,6 +6,41 @@ export type CardType = 'Unit' | 'Order' | 'Countermeasure';
 
 export type UnitType = 'Infantry' | 'Tank' | 'Aircraft' | 'Artillery';
 
+export interface EffectAction<TActionType extends string> {
+  type: TActionType;
+  value?: number;
+  spawnCardId?: string; // Dùng cho ACAV spawn-on-death, v.v.
+}
+
+export interface Effect<TTrigger extends string, TActionType extends string> {
+  trigger: TTrigger;
+  condition?: {
+    targetUnitType?: UnitType;
+    targetIsArmored?: boolean;
+    locationRow?: number;        // Ví dụ: 1 cho Conflict Zone
+    isRangedAttack?: boolean;    // Dùng cho Escort
+    isMeleeAttack?: boolean;     // Dùng cho Ambush
+    row?: number;                // Dùng cho OnReachRow (Movement)
+  };
+  action: EffectAction<TActionType>;
+}
+
+// Khai báo cụ thể các nhóm hiệu ứng
+export type CombatEffect = Effect<
+  'onAttack' | 'onDefend' | 'onKill' | 'onDeath' | 'onSurviveDefend',
+  'addAtk' | 'multAtk' | 'firstStrike' | 'reduceDmgTaken' | 'overkillToHQ' | 'spawnUnit' | 'healFullAndExtraAction' | 'permanentAtkBuff'
+>;
+
+export type MovementEffect = Effect<
+  'onReachRow',
+  'demolitionStrike'
+>;
+
+export type DeployEffect = Effect<
+  'onDeploy',
+  'addArmorToHQ' | 'clearEnemyTraps' | 'interceptAircraft'
+>;
+
 export interface Card {
   id: string;
   name: string;
@@ -20,6 +55,11 @@ export interface Card {
   rarity: CardRarity;
   ability: string;
   artworkKeyword: string; // Used for rendering gorgeous poster artwork
+  isArmored?: boolean; // Trait tĩnh để kiểm tra xe bọc thép
+  isAirmobile?: boolean; // Trait tĩnh bỏ qua summoning sickness
+  combatEffects?: CombatEffect[];
+  movementEffects?: MovementEffect[];
+  deployEffects?: DeployEffect[];
 }
 
 export interface GridUnit extends Card {
