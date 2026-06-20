@@ -4,6 +4,8 @@ export type CardRarity = 'Common' | 'Uncommon' | 'Rare' | 'Elite';
 
 export type CardType = 'Unit' | 'Order' | 'Countermeasure';
 
+export type UnitType = 'Infantry' | 'Tank' | 'Aircraft' | 'Artillery';
+
 export interface Card {
   id: string;
   name: string;
@@ -14,6 +16,7 @@ export interface Card {
   def: number;
   maxDef: number;
   type: CardType;
+  unitType?: UnitType;
   rarity: CardRarity;
   ability: string;
   artworkKeyword: string; // Used for rendering gorgeous poster artwork
@@ -22,12 +25,13 @@ export interface Card {
 export interface GridUnit extends Card {
   instanceId: string;
   hasMovedOrAttackedThisTurn: boolean;
+  hasMovedThisTurn?: boolean;
+  hasAttackedThisTurn?: boolean;
   camouflage: boolean;
   frozenTurns: number;
   armor: number; // Additional defense
   isAmphibious: boolean;
-  isAir: boolean; // Helicopters/Aircraft
-  isArtillery: boolean;
+  baseAtk?: number; // Base attack before dynamic presence-based auras are applied
 }
 
 export type Grid = (GridUnit | null)[][]; // 5 rows x 5 columns

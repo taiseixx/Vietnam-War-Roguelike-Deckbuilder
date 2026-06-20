@@ -111,6 +111,7 @@ interface GridUnit extends Card {
   isAmphibious: boolean;            // Không bị terrain penalty
   isAir: boolean;                   // Helicopter/Aircraft — immune terrain
   isArtillery: boolean;             // Ranged — no retaliation damage received
+  baseAtk?: number;                 // Base attack before dynamic presence-based auras are applied
 }
 ```
 
@@ -180,7 +181,7 @@ draftPool: Card[]                     // 3 random cards offered for draft
 **Key functions:**
 ```typescript
 selectFactionAndStart(faction: Faction)
-// → Initialize 15-card starter deck
+// → Initialize 30-card starter deck (balanced by rarity limits)
 // → Create 5 campaign nodes
 // → Set activeScreen = 'campaign_map'
 
@@ -285,15 +286,30 @@ handleEndTurn()
 
 #### Special Abilities System — `applyAuraBuffs(grid)`
 
-```typescript
-// Scan grid → tìm các unit có aura effect
-// Apply buffs động mỗi khi cần tính damage
+**Kiến trúc giải quyết Chỉ Số Ảo (Phantom Stats Anti-corruption Flow)**:
+Để kiểm soát triệt để các lỗi cộng dồn dồn ứ chỉ số khi di chuyển đơn vị hoặc luân hồi lượt mới, `applyAuraBuffs` được vận hành qua chu trình hai pha nghiêm ngặt:
 
-// Auras hiện tại:
-// 1. PAVN High Command Vanguard → +1 ATK/DEF tất cả NVA/VC units
-// 2. MAAG Advisors → ×2 ATK cho ARVN units liền kề (left/right)
-// 3. Group 559 Logistics → -1 Operation cost cho adjacent friendly units
-```
+1. **Pha Làm Sạch & Đồng Bộ Baseline**:
+   - Trích xuất hoặc khởi tạo lười (lazy-initialize) chỉ số `baseAtk` cho từng đơn vị trên bàn cờ nếu chưa được khai báo:
+     ```typescript
+     let baseAtk = unit.baseAtk !== undefined ? unit.baseAtk : CARD_DATABASE.find((c) => c.id === unit.id)?.atk ?? unit.atk;
+     ```
+   - Đồng bộ hoàn trả thuộc tính `atk = baseAtk` tạm thời để gột rửa tuyệt đối bất kỳ tàn dư hào quang hay buff hiện diện nào đã tính toán từ bước trước.
+
+2. **Pha Tính Toán Hào Quang & Loại Trừ HQ**:
+   - Thực hiện đếm số lượng nguồn kích hoạt hào quang đồng minh trên bàn đấu (ví dụ: số lượng `PAVN High Command Vanguard`).
+   - Cộng dồn lực công kích động lên toàn bộ các đơn vị đáp ứng điều kiện.
+   - **Chặn an toàn HQ**: HQs (`hq_player` và `hq_opponent`) luôn được chặn và loại trừ rõ ràng khỏi các vòng lặp hào quang, duy trì lực công lượng bằng `0` bất di bất dịch:
+     ```typescript
+     if (unit && unit.id !== 'hq_player' && unit.id !== 'hq_opponent') {
+       unit.atk += auraCount;
+     }
+     ```
+
+**Auras hiện tại hỗ trợ:**
+- **PAVN High Command Vanguard** (*Synergy Aura*): +1 ATK/DEF cho toàn bộ đơn vị NVA/VC trên sân đấu (ngoại trừ chính nó và các HQ).
+- **MAAG Advisors**: ×2 ATK lực chiến của ARVN units khi đứng liên kề trực tiếp (trái/phải).
+- **Group 559 Logistics**: Giảm -1 Operation cost cho các đơn vị đồng minh kề cạnh.
 
 #### Combat Calculation — `executeCombat(attackerPos, targetPos)`
 
@@ -616,7 +632,56 @@ ARVN Orders: Pacification Scheme, General Mobilization
 | VC Units | 1.7 | 3.0 | 2.3 | 2.0 |
 | ARVN Units | 3.0 | 1.0 | 3.0 | 3.7 |
 
-> **Nhận xét**: US units có Operation cost thấp hơn nhiều (0.9 vs 2.1) nhưng Kredit cost cao hơn — thể hiện "high quality, expensive" vs "cheap, many" asymmetry.
+> **Nhận xét**: US units có Operation cost thấp hơn many (0.9 vs 2.1) nhưng Kredit cost cao hơn — thể hiện "high quality, expensive" vs "cheap, many" asymmetry.
+
+---
+
+## V. THE CENTRALTACTICS COMMON ENG-ARCHITECTURE (Central Combat & Move Engine)
+
+Hệ thống điều vận chiến trường được tái thiết kế và "common hóa" tuyệt đối thông qua ba bộ giải trình trung tâm trong tệp `src/components/Battlefield.tsx`:
+
+### 5.4 Hàm Giải Quyết Giao Chiến `resolveCombatEngagement`
+Bộ phận trung tâm chịu trách nhiệm thu nạp các thực thể giao đấu, giải phóng các kỹ năng và điều phối thiệt hại một cách chính thống:
+```typescript
+function resolveCombatEngagement(
+  attacker: GridUnit,
+  defender: GridUnit,
+  attackerPos: { r: number; c: number },
+  defenderPos: { r: number; c: number },
+  nextGrid: Grid,
+  isPlayerTurn: boolean
+): void
+```
+- **Xử lý Armor AP (Xuyên Giáp)**:
+  - Nếu `attacker.id === 'nva_d44_85mm'` (Pháo chống tăng D-44 85mm) hoặc mang thuộc tính xuyên giáp, lượng Giáp của `defender.armor` tức khắc bị coi là 0 (bỏ qua giáp).
+- **Hấp Thụ Giáp Thiết Giáp (Heavy Armor Shielding)**:
+  - Nếu xe tăng hay bọc thép đối phương gánh chịu sát thương cận chiến/oanh kích mà có giáp:
+    `const absorption = Math.min(defender.armor, baseDmg);`
+    `defender.armor -= absorption;` và sát thương thực chất vào DEF chỉ gánh `realDmg = baseDmg - absorption`.
+- **Yếu Tố Phục Kích Địa Đạo (Guerrilla Ambush)**:
+  - Hàng ngũ bộ binh bị thu hút trước *Local Guerrilla Cell*. Guerrilla Cell tiến hành phát súng đầu tiên chấn động triệt hạ trực tiếp đối phương trước khi gánh chịu bất kỳ phản sát thương nào. Nếu phản súng hạ gục mục tiêu, sát thương Guerrilla nhận là 0.
+- **Patton Overkill HQ (Sát thương tràn Patton)**:
+  - Khi xe tăng M48 Patton hạ gục bộ binh địch, sát thương dư thừa không gánh bởi bộ binh sẽ giáng thẳng trực diện nổ tung phòng tuyến bộ chỉ huy HQ địch.
+- **Sát Thương Di Sản (ARVN 1st Infantry & Green Berets & ACAV)**:
+  - Trực tiếp liên kết với các callback của React state như `setOpponentHQ`, `setPlayerHQ`, gọi hồi máu +2 HP cho Green Beret khi hạ gục địch, hay tự động hóa nhảy dù lính bộ binh ACAV 2/2 ra ngoài trận địa lúc xe bọc thép M113 bị tiêu diệt.
+
+### 5.5 Hàm Kiểm Tra Cạm Bẫy và Kích Hoạt Di Chuyển `checkMoveTriggers`
+Mỗi khi một thực thể chuyển dịch trên lưới 3x5, cạm bẫy và các thế trận cơ động đầm lầy được tính toán đồng bộ:
+```typescript
+function checkMoveTriggers(
+  r: number,
+  c: number,
+  movingUnit: GridUnit,
+  nextGrid: Grid,
+  isPlayerMoving: boolean
+): void
+```
+- **Bộc Phá Đặc Công Nước 126th SpecOps**:
+  - Khi luồn sâu chạm hậu tuyến địch, SpecOps tự bạo tiêu diệt 1 pháo binh/không chiến địch cùng hàng.
+- **Kích Nổ Bẫy Mìn Punji / Amber Trap / Landmines**:
+  - Kích nổ bẫy mìn: gây 3 sát thương, loại bỏ bẫy khỏi tệp tin hoạt động và phong tỏa bằng Đóng Băng `frozenTurns = 1`.
+- **Thải Loại Phạt Vùng Địa Hình (Amphibious/Swamp Operations)**:
+  - Đơn vị được gán là Amphibious (Sông ngòi) cơ động vượt sông rạch vùng sớ lầm sình lầy Conflict Zone (Hàng 1) mà không gặp bất kỳ chậm trễ hay chi phí cản trở nào.
 
 ---
 

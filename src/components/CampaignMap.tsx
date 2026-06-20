@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { CampaignState, CampaignNode, Card } from '../types';
 import { Play, Flame, Compass, ShieldAlert, Award, Star, Compass as RadarIcon, Eye, ShoppingCart } from 'lucide-react';
 import { sound } from '../utils/sound';
@@ -31,6 +31,51 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
 }) => {
   const [showDeckViewer, setShowDeckViewer] = useState(false);
   const { nodes, currentNodeId, gold, level, playerDeck, currentFaction, playerHQDef } = campaignState;
+
+  // Group duplicate cards to avoid visual flooding, keeping track of counts
+  const groupedDeck = useMemo(() => {
+    const groups: { [key: string]: { card: Card; count: number } } = {};
+    playerDeck.forEach((card) => {
+      if (groups[card.id]) {
+        groups[card.id].count += 1;
+      } else {
+        groups[card.id] = { card: { ...card }, count: 1 };
+      }
+    });
+
+    const list = Object.values(groups);
+
+    // Sort to make the deck viewer layout fully aligned, stable, and readable
+    return list.sort((a, b) => {
+      // 1. Primary faction first, sub-faction second (US/NVA first, ARVN/VC second)
+      const factionWeight = (f: string) => {
+        if (f === 'US' || f === 'NVA') return 0;
+        return 1;
+      };
+      const diffFactionWeight = factionWeight(a.card.faction) - factionWeight(b.card.faction);
+      if (diffFactionWeight !== 0) return diffFactionWeight;
+
+      // Subdivision alphabetical
+      const diffFaction = a.card.faction.localeCompare(b.card.faction);
+      if (diffFaction !== 0) return diffFaction;
+
+      // 2. Card Type (Unit first, then Order, then Countermeasure)
+      const typeWeight = (t: string) => {
+        if (t === 'Unit') return 0;
+        if (t === 'Order') return 1;
+        return 2;
+      };
+      const diffType = typeWeight(a.card.type) - typeWeight(b.card.type);
+      if (diffType !== 0) return diffType;
+
+      // 3. Kredit cost (increasing)
+      const diffCost = a.card.k - b.card.k;
+      if (diffCost !== 0) return diffCost;
+
+      // 4. Name (alphabetical)
+      return a.card.name.localeCompare(b.card.name);
+    });
+  }, [playerDeck]);
 
   // Render node icon helper
   const getNodeIcon = (type: string, active: boolean) => {
@@ -428,11 +473,16 @@ export const CampaignMap: React.FC<CampaignMapProps> = ({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4 w-full max-w-5xl pb-10">
-            {playerDeck.map((card, idx) => (
+            {groupedDeck.map(({ card, count }, idx) => (
               <div
                 key={`${card.id}-${idx}`}
                 className="relative rounded overflow-hidden border border-stone-850 bg-stone-900 p-2 font-mono text-xs"
               >
+                {count > 1 && (
+                  <div className="absolute top-1.5 right-1.5 bg-[#1E3A8A] text-[#93C5FD] font-black text-[10px] px-1.5 py-0.5 rounded-md shadow border border-[#3B82F6]/50 z-10 animate-pulse">
+                    x{count}
+                  </div>
+                )}
                 <div className="aspect-[4/3] w-full mb-2">
                   <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} />
                 </div>

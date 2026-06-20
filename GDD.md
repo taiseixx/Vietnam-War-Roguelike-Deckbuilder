@@ -92,7 +92,7 @@
 
 **Màn hình Chọn phe (Faction Selection)**
 - Người chơi chọn **USA/ARVN** hoặc **NVA/VC**.
-- Mỗi phe có bộ bài starter 15 thẻ riêng, phong cách hoàn toàn khác nhau.
+- Mỗi phe có bộ bài starter 30 thẻ riêng (gồm nhiều bản sao ngẫu nhiên cân bằng theo độ hiếm), phong cách hoàn toàn khác nhau.
 
 **Bản đồ chiến dịch (Campaign Map)**
 - 5 node theo trình tự tuyến tính, mỗi node là một địa danh lịch sử:
@@ -185,18 +185,51 @@ START OF TURN
 | **Rare** | Amber | Ability mạnh, thường có synergy hoặc range attack |
 | **Elite** | Red | Thẻ mạnh nhất — aura buff toàn board hoặc game-changing effect |
 
-#### C7. Đặc Tính Đơn Vị (Unit Traits)
+#### C7. Đặc Tính Đơn Vị (Unit Types & Combat Matrix)
 
-| Trait | Mô tả | Đơn vị ví dụ |
-|-------|-------|--------------|
-| `isAir` | Đơn vị không quân — không bị ảnh hưởng terrain | 1st Cav Airmobile, F-4 Phantom, MiG-17 |
-| `isArtillery` | Ranged attack — không nhận retaliation damage | 40th Artillery Regiment |
-| `isAmphibious` | Bỏ qua terrain penalty ở Conflict Zone | 803rd Riverine, 9th Division Riverines |
-| `camouflage` | Ẩn với ranged/artillery — chỉ lộ khi tấn công | Foliage Camouflage Order |
-| `frozenTurns` | Đơn vị bị đóng băng — không thể hành động | Surround & Isolate Order |
-| `armor` | Lớp giáp bổ sung — hấp thụ damage trước DEF | Combat Engineers (HQ armor) |
+Đơn vị được chia thành 4 loại: **Infantry** (Bộ binh), **Tank** (Thiết giáp), **Aircraft** (Không quân), **Artillery** (Pháo binh).
 
-#### C8. Các Phe (Factions)
+**Quy tắc Combat (Simultaneous Damage Resolve):**
+1. **Infantry vs Infantry**: Cả 2 bên mất DEF = ATK đối thủ (Mutual damage).
+2. **Tank**: Luôn thực hiện *mutual full ATK exchange* với mọi mục tiêu (Infantry/Tank/Aircraft). Tank không có giảm trừ damage.
+3. **Vs Aircraft (Không quân)**:
+   - **Infantry/Tank tấn công Aircraft**: Full ATK exchange (Bên tấn công mất DEF = 100% ATK của Aircraft).
+   - **Aircraft tấn công Aircraft**: Full ATK exchange.
+   - **Aircraft tấn công Infantry**: Bên tấn công (Aircraft) chỉ mất DEF = **50% ATK** đối thủ (round up).
+   - **Aircraft tấn công Tank**: Full ATK exchange.
+4. **Artillery (Pháo binh)**:
+   - **Tấn công (Attacker)**: KHÔNG mất DEF khi tấn công (bất kể target).
+   - **Bị tấn công (Defender)**: Khi bị tấn công bởi bất kỳ unit nào, bên tấn công KHÔNG mất DEF.
+   - *Kết luận*: Artillery miễn nhiễm hoàn toàn với counter-damage ở cả 2 vị trí (công và thủ).
+5. **Simultaneous Resolve**: Mọi sát thương được tính toán và trừ cùng lúc cho cả hai bên. Nếu một bên chết, bên kia vẫn nhận đủ damage trước khi chết.
+
+**Bảng Ma Trận Combat (Ví dụ ATK 2 vs ATK 2):**
+| Attacker | Defender | Dmg Attacker nhận | Dmg Defender nhận |
+|----------|----------|-------------------|-------------------|
+| Infantry | Infantry | 2 | 2 |
+| Infantry | Tank | 2 | 2 |
+| Infantry | Aircraft | 2 | 2 |
+| Infantry | Artillery| 0 | 2 |
+| Tank | Mọi loại | 2 | 2 |
+| Aircraft | Infantry | 1 (50%) | 2 |
+| Aircraft | Aircraft | 2 | 2 |
+| Aircraft | Tank | 2 | 2 |
+| Aircraft | Artillery| 0 | 2 |
+| Artillery| Mọi loại | 0 | 2 |
+
+#### C8. Kinh Tế Hành Động (Turn Action Economy)
+
+1. **Summoning Sickness**: Đơn vị vừa deploy được đánh dấu là "đã hành động" → chỉ có thể hành động ở lượt kế tiếp của chính nó.
+2. **Action Limits**:
+   - **Infantry**: 1 Action/lượt (**Move** HOẶC **Attack**).
+   - **Tank**: 2 Actions/lượt (**Move** VÀ **Attack**). *Lưu ý*: Move phải thực hiện trước hoặc cùng turn với Attack, nhưng chuỗi hành động kết thúc sau khi Attack.
+   - **Aircraft**: 1 Action/lượt (**Move** HOẶC **Attack**).
+   - **Artillery**: 1 Action/lượt (**Move** HOẶC **Attack**).
+3. **Operation Cost (O)**: Mỗi hành động (Move hoặc Attack) đều tiêu tốn số O Kredit tương ứng của thẻ bài. Tank di chuyển và tấn công sẽ tốn O Kredit 2 lần.
+
+---
+
+#### C9. Các Phe (Factions)
 
 **🇺🇸 USA / ARVN Alliance**
 - **Phong cách**: Fire superiority — ít quân nhưng mạnh, nhiều support orders
@@ -207,6 +240,55 @@ START OF TURN
 - **Phong cách**: Guerrilla warfare — nhiều quân, infiltration, traps
 - **Ưu điểm**: Nhiều bài rẻ, tunnel transport, ambush traps, Ho Chi Minh Trail logistics
 - **Sub-faction VC**: First-strike ambush, demolition strike, scorched earth retreat
+
+---
+
+#### C10. Cơ Chế Chỉ Số & Buff Chỉ Số (Stat Systems, Permanent vs. Presence Buffs)
+
+Để duy trì sự cân bằng chiến thuật và ngăn ngừa lỗi tích lũy chỉ số ảo (phantom stats) qua các lượt đấu, game áp dụng một quy chế phân loại buff nghiêm ngặt:
+
+1. **Chỉ số Tấn công Gốc (`baseAtk`):**
+   - Là chỉ số tấn công cơ bản thực tế của Unit trên bàn cờ, kế thừa trực tiếp từ Thư viện thẻ bài gốc khi triển khai.
+   - Các hiệu ứng nâng cấp vĩnh viễn (Spells, Orders như *Rapid March* nâng +2 ATK, hoặc *Emulation Appeal* nâng +1 ATK) sẽ tác động trực tiếp và cộng dồn vào `baseAtk`.
+
+2. **Chỉ số Tấn công Tức thời (`atk`):**
+   - Là chỉ số hiển thị trên giao diện và được đưa vào tính toán sát thương trực tiếp trong combat.
+   - Trước mỗi pha áp dụng hiệu ứng hào quang (aura), hệ thống thực hiện quét sạch dọn dẹp game state, gán lại `atk = baseAtk` để làm sạch hoàn toàn các buff tạm thời của lượt cũ.
+
+3. **Cơ chế Hào quang Động (Presence Auras):**
+   - Các đơn vị Elite có khả năng phát tỏa hào quang (như *PAVN Command Vanguard - Synergy Aura* cộng +1 ATK cho toàn phe, hay *MAAG Advisors* nhân đôi công kích của ARVN đứng cạnh) sẽ được áp dụng động (on-the-fly) chồng lên `baseAtk` hiện có sau bước làm sạch.
+   - Vì thế, việc di chuyển đơn vị ra xa hoặc tiêu diệt đơn vị phát tỏa hào quang sẽ làm mất chỉ số cộng thêm một cách chính xác mà không gây lỗi tích hợp vĩnh viễn bừa bãi.
+
+4. **Bảo toàn Bộ Chỉ Huy (HQ Health & Immunity):**
+   - Đơn vị Tổng hành dinh (Player HQ và Opponent HQ) có thuộc tính ATK gốc là 0.
+   - HQ **tuyệt đối miễn nhiễm** với tất cả các hiệu ứng tích lũy hoán đổi hoặc buff chỉ số hào quang động từ đồng minh (hào quang NVA Officers hay Advisors không được phép tác động làm tăng ATK của HQ từ 0 lên lớn hơn).
+
+---
+
+#### C11. Hệ Thống Synergy và Commonized Battle Logic
+
+Để trò chơi vận hành thống nhất và không xuất hiện các kịch bản chồng chéo giữa phép bổ trợ và thuộc tính đơn vị, toàn bộ logic chiến đấu được tích hợp một cách đồng bộ qua hai **Động Cơ Điều Khiển Trung Tâm (Central Common Engine)**:
+
+##### 1. Động Cơ Giao Chiến Unified (`resolveCombatEngagement`)
+Toàn bộ các pha cận chiến, không kích, hay oanh kích pháo binh đều đi qua bộ giải trình vạn năng này, xử lý tuần tự và bao quát các đặc tính tối thượng (Synergies):
+- **Phục Kích Chớp Nhoáng (First-Strike Ambush)**: Đơn vị *Local Guerrilla Cell* (Địa đạo hoặc deploy) đánh trước khi bị đối thủ cận chiến húc phải (Melee). Nếu đòn đánh của Guerrilla Cell tiêu diệt cận chiến địch, Guerrilla Cell không tốn một DEF nào, triệt tiêu đòn phản công của cận chiến địch.
+- **Xuyên Phá Trực Diện (Armor-Piercing)**: Các đơn vị mang thuộc tính *Armor-Piercing* (như pháo chống tăng 85mm nva_d44_85mm) sẽ bỏ qua hoàn toàn lượng Giáp (Armor) của xe tăng đối phương, giáng sát thương trực tiếp vào Hệ Số DEF gốc.
+- **Hấp thụ Sát Thương Thiết Giáp (Heavy Armor Shielding)**: Xe tăng M48 Patton hay M113 ACAV mang chỉ số Giáp `armor` động sẽ hấp thụ toàn bộ sát thương gánh chịu đúng bằng giá trị giáp trước khi chạm vào DEF. Sát thương dư sẽ xuyên tiếp vào DEF gốc. Nếu Patton tiêu diệt bộ binh, sát thương dư cũng dội ngược làm nổ tung HQ địch.
+- **Oanh Tạc Tầm Xa (No-Retaliation Artillery Range)**: Pháo binh nương mình bắn từ tuyến sau: cả khi chủ động xả pháo và bị động chịu kẻ khác bắn, pháo binh hoàn toàn không bị gánh chịu phản sát thương (counter-damage).
+- **Ngụy Trang Trốn Quét (Foliage Camouflage Protection)**: Đơn vị ngụy trang (Camouflage) không thể bị chọn làm mục tiêu bởi pháo binh (Artillery) bắn xa hay không quân (Aircraft) oanh kích tầm xa. Tầm quét tầm xa hoàn toàn thất bại cho đến khi đơn vị ngụy trang chủ động tiến hành phát súng tấn công đầu tiên.
+- **Ám Sát Bất Ngờ (Demolition Strike of 126th SpecOps)**: Đặc công nước 126th SpecOps khi luồn sâu thành công chạm tới vạch xuất phát tuyến cuối của địch (Hàng 0 đối với Player NVA, Hàng 2 đối với AI NVA), lập tức tự bộc phát hành động tự sát để bộc phá phá hủy một đơn vị pháo binh (Artillery) hoặc không quân (Aircraft) đối phương đứng cùng hàng, dọn sạch hậu tuyến chiến thuật.
+- **Áp Đảo Tuyệt Đối Không Phận (Air Supremacy)**: MiG-17 Pilot của NVA lúc xuất trận ngay lập tức tìm kiếm máy bay trực thăng hay chiến cơ của Hoa Kỳ trên bàn cờ để kích kích bắn rơi trực diện với 4 Sát thương oanh tạc tuyệt đối.
+- **Kích Hoạt Di Sản Chiến Trận (On-Kill and Death Triggers)**:
+  - Khi *M113 ACAV* của Hoa Kỳ bị nổ súng bắn hạ, kíp lái lập tức phóng ra ngoài dưới dạng đơn vị bộ binh *ACAV Infantry* 2/2 chiến đấu tiếp.
+  - Khi đơn vị *Green Berets* tiêu diệt thành công 1 mục tiêu địch, biệt kích lập tức được cứu thương dồi dào, tự phục hồi +2 DEF căng đầy sức sống.
+  - Sau mỗi pha phòng ngự thành công hoặc tiêu diệt địch, sư đoàn thiện chiến *ARVN 1st Infantry* (Battle Hardened) tăng vĩnh viễn +1 ATK thực chiến.
+
+##### 2. Động Cơ Kích Hoạt Di Chuyển (`checkMoveTriggers`)
+Thanh toán chi phí di chuyển `o` Kredit đồng nghĩa với việc đơn vị bước vào mê lộ trận địa. Động Cơ Di Chuyển quản lý toàn bộ phản ứng địa hình:
+- **Ngụy Trang Khi Di Chuyển**: Di chuyển chiến thuật không làm lộ vị trí. Trạng thái ngụy trang giữ nguyên cho đến khi đơn vị nổ súng.
+- **Kích Hoạt Bẫy Cạm Bẫy (Punji / Amber Trap / Landmines)**:
+  - Khi ground unit đặt chân vào ô cạm bẫy của đối phương, bẫy sập! Gây 3 sát thương DEF dữ dội và lập tức phong tỏa bước chân di chuyển, áp đặt trạng thái Đóng Băng `frozenTurns = 1`.
+- **Hoạt Động Đầm Lầy (Amphibious/Swamp Operations)**: Đơn vị đường thủy (như nva_803rd_riverine hay us_9th_riverines) di chuyển lướt nhẹ qua vùng sình lầy Conflict Zone (Hàng 1) mà không gặp bất kỳ cản trở nào về chi phí hay hạn chế hoạt động, mang lại lợi thế cơ động đường thủy khổng lồ.
 
 ---
 

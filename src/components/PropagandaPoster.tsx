@@ -436,7 +436,6 @@ export const PropagandaPoster: React.FC<PropagandaPosterProps> = ({
 
       // ----------------- ORDERS / TRAPS -----------------
       case 'order_march':
-      case 'order_drive':
         return (
           <>
             <rect width="100" height="70" fill="#A8201A" />
@@ -444,7 +443,31 @@ export const PropagandaPoster: React.FC<PropagandaPosterProps> = ({
             {/* Dynamic wind sweeps */}
             <path d="M 10,55 Q 30,50 90,55" fill="none" stroke="#F9C80E" strokeWidth="2" />
             <path d="M 20,62 Q 50,58 80,62" fill="none" stroke="#F9C80E" strokeWidth="1" />
-            <text x="50" y="66" fill="#F9C80E" fontSize="5" fontFamily="sans-serif" fontWeight="heavy" textAnchor="middle">SẤM SÉT TIẾN QUÂN</text>
+            <text x="50" y="66" fill="#F9C80E" fontSize="5" fontFamily="sans-serif" fontWeight="heavy" textAnchor="middle">HÀNH QUÂN THẦN TỐC</text>
+          </>
+        );
+
+      case 'order_drive':
+        return (
+          <>
+            <rect width="100" height="70" fill="#8D1814" />
+            <g opacity="0.3">
+              <polygon points="0,70 20,25 45,70" fill="#1C3822" />
+              <polygon points="35,70 65,15 90,70" fill="#152B1B" />
+              <polygon points="70,70 85,35 100,70" fill="#0E1F13" />
+            </g>
+            {/* Mountain trail path tracks */}
+            <path d="M 15,65 L 50,45 L 85,15" fill="none" stroke="#F9C80E" strokeWidth="2" strokeDasharray="3,3" />
+            {/* Military vehicle silhouette profile */}
+            <g transform="translate(32, 38) scale(0.65)">
+              <rect x="5" y="10" width="30" height="10" fill="#1C3822" rx="2" />
+              <rect x="15" y="2" width="15" height="10" fill="#1C3822" rx="1" />
+              <circle cx="10" cy="20" r="4" fill="#000" />
+              <circle cx="20" cy="20" r="4" fill="#000" />
+              <circle cx="30" cy="20" r="4" fill="#000" />
+            </g>
+            <text x="50" y="18" fill="#F9C80E" fontSize="6.5" fontFamily="sans-serif" fontWeight="black" textAnchor="middle">XẺ DỌC TRƯỜNG SƠN</text>
+            <text x="50" y="66" fill="#F9C80E" fontSize="4.5" fontFamily="monospace" textAnchor="middle">QUYẾT TÂM GIẢI PHÓNG</text>
           </>
         );
 
@@ -462,7 +485,6 @@ export const PropagandaPoster: React.FC<PropagandaPosterProps> = ({
         );
 
       case 'order_camo':
-      case 'order_vacate':
         return (
           <>
             <rect width="100" height="70" fill="#3D4B39" />
@@ -474,7 +496,42 @@ export const PropagandaPoster: React.FC<PropagandaPosterProps> = ({
           </>
         );
 
+      case 'order_vacate':
+        return (
+          <>
+            <rect width="100" height="70" fill="#7D2010" />
+            {/* Burning elements */}
+            <path d="M 10,70 Q 25,35 40,70" fill="#C95A11" />
+            <path d="M 70,70 Q 80,45 90,70" fill="#E28F13" />
+            {/* Broken or empty straw huts silhouette */}
+            <polygon points="30,70 30,55 50,55 50,70" fill="#1C1410" />
+            <polygon points="25,55 40,40 55,55" fill="#C95A11" stroke="#1C1410" strokeWidth="1" />
+            <line x1="30" y1="58" x2="50" y2="58" stroke="#7D2010" strokeWidth="1" />
+            <text x="50" y="22" fill="#E28F13" fontSize="7" fontFamily="sans-serif" fontWeight="heavy" textAnchor="middle">VƯỜN KHÔNG NHÀ TRỐNG</text>
+            <text x="50" y="65" fill="#E28F13" fontSize="5" fontFamily="monospace" textAnchor="middle">TRIỆT TIÊU TIẾP TẾ</text>
+          </>
+        );
+
       case 'order_isolate':
+        return (
+          <>
+            <rect width="100" height="70" fill="#5E1410" />
+            <circle cx="50" cy="35" r="22" fill="none" stroke="#F9C80E" strokeWidth="1.5" strokeDasharray="3,3" />
+            {/* Enveloping red arrows from left, right, top, bottom, squeezing the target */}
+            <path d="M 24,35 L 34,30 L 34,40 Z" fill="#F9C80E" />
+            <line x1="10" y1="35" x2="34" y2="35" stroke="#F9C80E" strokeWidth="3" />
+            
+            <path d="M 76,35 L 66,30 L 66,40 Z" fill="#F9C80E" />
+            <line x1="90" y1="35" x2="66" y2="35" stroke="#F9C80E" strokeWidth="3" />
+            
+            {/* Starved blue vehicle symbol inside the trap */}
+            <rect x="42" y="30" width="16" height="10" fill="#1B2A44" rx="1" />
+            <circle cx="50" cy="35" r="3" fill="#A8201A" />
+            
+            <text x="50" y="64" fill="#F9C80E" fontSize="6" fontFamily="sans-serif" fontWeight="black" textAnchor="middle">VÂY CHẶT CÔ LẬP</text>
+          </>
+        );
+
       case 'order_tunnel':
         return (
           <>
@@ -489,22 +546,36 @@ export const PropagandaPoster: React.FC<PropagandaPosterProps> = ({
         );
 
       case 'order_fortify':
-      case 'order_draft':
         return (
           <>
-            <rect width="100" height="70" fill="#3E4E30" />
+            <rect width="100" height="70" fill="#3D4D30" />
             {/* Strategic hamlet fences */}
             <line x1="5" y1="50" x2="95" y2="50" stroke="#CBBF99" strokeWidth="3" />
             <line x1="15" y1="35" x2="15" y2="60" stroke="#CBBF99" strokeWidth="2" />
             <line x1="35" y1="35" x2="35" y2="60" stroke="#CBBF99" strokeWidth="2" />
             <line x1="55" y1="35" x2="55" y2="60" stroke="#CBBF99" strokeWidth="2" />
             <line x1="75" y1="35" x2="75" y2="60" stroke="#CBBF99" strokeWidth="2" />
-            <text x="50" y="24" fill="#CBBF99" fontSize="6" fontFamily="sans-serif" fontWeight="bold" textAnchor="middle">STRATEGIC HAMLET</text>
+            <text x="50" y="24" fill="#CBBF99" fontSize="6.5" fontFamily="sans-serif" fontWeight="bold" textAnchor="middle">STRATEGIC HAMLET</text>
+          </>
+        );
+
+      case 'order_draft':
+        return (
+          <>
+            <rect width="100" height="70" fill="#D2AC43" />
+            <rect x="5" y="5" width="90" height="60" fill="#BF911A" />
+            {/* Peace scale and ARVN crest theme */}
+            <circle cx="50" cy="30" r="14" fill="#1C3F1B" />
+            {/* Scale beams */}
+            <line x1="38" y1="28" x2="62" y2="28" stroke="#F1C40F" strokeWidth="2" />
+            <line x1="50" y1="20" x2="50" y2="40" stroke="#F1C40F" strokeWidth="1.5" />
+            <circle cx="38" cy="34" r="3" fill="#F1C40F" />
+            <circle cx="62" cy="34" r="3" fill="#F1C40F" />
+            <text x="50" y="58" fill="#1C3F1B" fontSize="6" fontFamily="sans-serif" fontWeight="black" textAnchor="middle">CHƯƠNG TRÌNH BÌNH ĐỊNH</text>
           </>
         );
 
       case 'order_supply':
-      case 'order_mobilize':
         return (
           <>
             <rect width="100" height="70" fill="#3D3A30" />
@@ -513,6 +584,22 @@ export const PropagandaPoster: React.FC<PropagandaPosterProps> = ({
             <line x1="35" y1="15" x2="65" y2="45" stroke="#403D30" strokeWidth="2" />
             <line x1="65" y1="15" x2="35" y2="45" stroke="#403D30" strokeWidth="2" />
             <text x="50" y="60" fill="#E8D8A6" fontSize="7" fontFamily="monospace" fontWeight="bold" textAnchor="middle">SUPPLY EXPANSION</text>
+          </>
+        );
+
+      case 'order_mobilize':
+        return (
+          <>
+            <rect width="100" height="70" fill="#E8BD35" />
+            {/* Three red horizontal stripes of the ARVN republic heritage flag */}
+            <rect x="10" y="15" width="80" height="4" fill="#C0392B" />
+            <rect x="10" y="24" width="80" height="4" fill="#C0392B" />
+            <rect x="10" y="33" width="80" height="4" fill="#C0392B" />
+            {/* High-tension military command trumpet/shield */}
+            <polygon points="50,42 42,62 58,62" fill="#2C3E50" />
+            <circle cx="50" cy="42" r="3" fill="#2C3E50" />
+            <text x="50" y="56" fill="#C0392B" fontSize="7" fontFamily="sans-serif" fontWeight="black" textAnchor="middle">TỔNG ĐỘNG VIÊN</text>
+            <text x="50" y="65" fill="#2C3E50" fontSize="4" fontFamily="monospace" textAnchor="middle" letterSpacing="0.5">GENERAL MOBILIZATION</text>
           </>
         );
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, CampaignState, CampaignNode, Faction } from './types';
 import { CARD_DATABASE } from './data/cards';
+import { generateDynamicDeck } from './utils/deck';
 import { CampaignMap } from './components/CampaignMap';
 import { Battlefield } from './components/Battlefield';
 import { sound } from './utils/sound';
@@ -41,21 +42,8 @@ export default function App() {
   const selectFactionAndStart = (faction: Faction) => {
     sound.playRadioStatic();
 
-    // 1. Establish starting decks of 15 thematic starter cards
-    let starterDeck: Card[] = [];
-    if (faction === 'USA') {
-      // US starter deck
-      starterDeck = CARD_DATABASE.filter(
-        (c) => c.faction === 'US' || c.faction === 'ARVN'
-      )
-        .slice(0, 15);
-    } else {
-      // NVA starter deck
-      starterDeck = CARD_DATABASE.filter(
-        (c) => c.faction === 'NVA' || c.faction === 'VC'
-      )
-        .slice(0, 15);
-    }
+    // 1. Establish starting decks of 30 thematic starter cards
+    let starterDeck = generateDynamicDeck(faction, 30);
 
     // 2. Establish 5 campaign nodes
     const operationalNodes: CampaignNode[] = [

@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, GridUnit, Grid, BattleLog, Faction, CampaignNode } from '../types';
+import { startTransition } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Card, GridUnit, Grid, BattleLog, Faction, CampaignNode, CardRarity } from '../types';
 import { CARD_DATABASE } from '../data/cards';
+import { generateDynamicDeck } from '../utils/deck';
+import tableBg from '../assets/images/wood_battlefield_table_1781636718604.jpg';
+
 import { sound } from '../utils/sound';
 import { PropagandaPoster } from './PropagandaPoster';
 import { MulliganOverlay } from './MulliganOverlay';
@@ -24,19 +29,29 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   onBattleDefeat,
   onExitBattle,
 }) => {
-  // Game state
+  const playerSideFactions = faction === 'USA' ? ['US', 'ARVN'] : ['NVA', 'VC'];
+  const opponentSideFactions = faction === 'USA' ? ['NVA', 'VC'] : ['US', 'ARVN'];
+
+  // Opponent state
+  const [opponentDeckRemaining, setOpponentDeckRemaining] = useState<Card[]>([]);
   const [playerHQ, setPlayerHQ] = useState(20);
+  const playerHQRef = useRef(20);
   const [playerHQArmor, setPlayerHQArmor] = useState(0);
   const [opponentHQ, setOpponentHQ] = useState(20);
+  const opponentHQRef = useRef(20);
   const [opponentHQArmor, setOpponentHQArmor] = useState(0);
 
-  const [maxKredits, setMaxKredits] = useState(1);
-  const [playerKredits, setPlayerKredits] = useState(1);
-  const [opponentKredits, setOpponentKredits] = useState(1);
+  const [playerMaxKredits, setPlayerMaxKredits] = useState(0);
+  const playerMaxKreditsRef = useRef(0);
+  const [opponentMaxKredits, setOpponentMaxKredits] = useState(0);
+  const opponentMaxKreditsRef = useRef(0);
+  const [playerKredits, setPlayerKredits] = useState(0);
+  const [opponentKredits, setOpponentKredits] = useState(0);
 
   const [playerDeckRemaining, setPlayerDeckRemaining] = useState<Card[]>([]);
   const [playerHand, setPlayerHand] = useState<Card[]>([]);
   const [opponentHand, setOpponentHand] = useState<Card[]>([]);
+  const opponentHandRef = useRef<Card[]>([]);
 
   // 3 rows x 5 columns grid
   const [grid, setGrid] = useState<Grid>([
@@ -44,6 +59,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     [null, null, null, null, null], // Row 1: Conflict Zone (Line 2/3 check)
     [null, null, null, null, null], // Row 2: Player Base line (Line 3/3 check)
   ]);
+  const gridRef = useRef<Grid>(grid);
 
   const [activeTraps, setActiveTraps] = useState<{ faction: Faction; cardId: string }[]>([]);
 
@@ -57,14 +73,16 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   const [battlePhase, setBattlePhase] = useState<'deploy' | 'resolve' | 'gameover'>('deploy');
   const [activeUnitActing, setActiveUnitActing] = useState<{ r: number; c: number } | null>(null);
   const [battleReportLogs, setBattleReportLogs] = useState<BattleLog[]>([]);
-  const [currentTurnOwner, setCurrentTurnOwner] = useState<Faction>('USA'); // Player first
+  const [currentTurnOwner, setCurrentTurnOwner] = useState<Faction>(faction); // Player first
   const [selectedOrderCard, setSelectedOrderCard] = useState<Card | null>(null);
+  const [playedOrderCard, setPlayedOrderCard] = useState<{ card: Card; isPlayer: boolean } | null>(null);
   const [targetingIndex, setTargetingIndex] = useState<{ r: number; c: number } | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [activeSiren, setActiveSiren] = useState(false);
+  const [totalTurns, setTotalTurns] = useState(0);
 
   // Stats
-  const [opponentDeckSize, setOpponentDeckSize] = useState(15);
+
 
   // Tactical Drag and Drop & Targeting Arrows State
   const [activeDrag, setActiveDrag] = useState<{
@@ -91,7 +109,8 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
   // Drag over coordinates
   const [draggedCard, setDraggedCard] = useState<Card | null>(null); // Keep for legacy
-  const [selectedHandUnit, setSelectedHandUnit] = useState<Card | null>(null);
+  const [selectedHandUnit, setSelectedHandUnit] = useState<Card[] | null | any>(null);
+  const [lastDeployedCell, setLastDeployedCell] = useState<{ r: number; c: number; isPlayer: boolean } | null>(null);
 
   // Detailed Modal Card State
   const [detailedCard, setDetailedCard] = useState<Card | null>(null);
@@ -108,12 +127,248 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   // Dynamic 1960s KARDS-style helpers
   const getUnitClassSymbol = (unit: any) => {
     if (unit.id === 'hq_player' || unit.id === 'hq_opponent') return '⭐';
-    if (unit.isAir) return '🚁';
-    if (unit.isArtillery) return '💥';
+    if (unit.unitType === 'Aircraft') return '🚁';
+    if (unit.unitType === 'Artillery') return '💥';
     if (unit.isAmphibious) return '⚓';
     const idLower = unit.id?.toLowerCase() || '';
     if (idLower.includes('tank') || idLower.includes('patton') || idLower.includes('apc') || idLower.includes('acav') || idLower.includes('armoured') || idLower.includes('armored')) return '🚜';
     return '🪖';
+  };
+
+  // VECTORS FOR BESPOKE FACTION EMBLEMS
+  const renderUS_SSI = (card: Card, isMini: boolean) => {
+    const sizeClass = isMini ? 'w-4 h-4' : 'w-7 h-8';
+    if (card.artworkKeyword === 'huey' || card.name.includes('Cav') || card.id.includes('cav') || card.name.includes('Airmobile')) {
+      // 1st Cavalry Division
+      return (
+        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 30 36" fill="none">
+          <path d="M 0 6 A 6 6 0 0 0 6 12 L 24 12 A 6 6 0 0 0 30 6 Q 15 36 0 6" fill="#F4D03F" stroke="#111" strokeWidth="1.5"/>
+          <line x1="4" y1="4" x2="26" y2="26" stroke="#111" strokeWidth="3.5"/>
+          <path d="M 12 11 Q 14 6 18 8 L 22 11 L 18 16 Q 14 16 12 13 Z" fill="#111"/>
+        </svg>
+      );
+    } else if (card.artworkKeyword === 'screaming_eagles' || card.name.includes('101st') || card.id.includes('airborne') || card.name.includes('Eagles')) {
+      // 101st Airborne
+      return (
+        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 30 36" fill="none">
+          <path d="M 3 6 L 27 6 L 27 24 Q 15 36 3 24 Z" fill="#1B4F72" stroke="#111" strokeWidth="1.5"/>
+          <rect x="3" y="1" width="24" height="6" fill="#922B21" rx="1"/>
+          <circle cx="15" cy="18" r="8" fill="#FFF" stroke="#111" strokeWidth="0.5"/>
+          <path d="M 18 19 L 24 20 L 20 22 C 18 22 17 21 17 19" fill="#F1C40F"/>
+          <circle cx="13" cy="16" r="1.2" fill="#000"/>
+        </svg>
+      );
+    } else {
+      // 1st Signal / standard US Army shield
+      return (
+        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 30 36" fill="none">
+          <path d="M 0 6 L 15 1 L 30 6 L 30 24 Q 15 36 0 24 Z" fill="#2E4053" stroke="#BA4A00" strokeWidth="1.5" />
+          <path d="M 18 8 L 10 18 L 16 18 L 12 28 L 22 16 L 16 16 Z" fill="#F1C40F" stroke="#111" strokeWidth="0.5"/>
+        </svg>
+      );
+    }
+  };
+
+  const renderARVN_badge = (card: Card, isMini: boolean) => {
+    const sizeClass = isMini ? 'w-4 h-4' : 'w-7 h-7';
+    if (card.name.includes('Ranger') || card.id.includes('ranger') || card.id.includes('spec_ops') || card.id.includes('specops')) {
+      // Rangers - Hắc Hổ (Black Tiger)
+      return (
+        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]`} viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" fill="#E67E22" stroke="#222" strokeWidth="1.5"/>
+          <path d="M 6 16 Q 16 26 26 16 M 8 13 Q 16 7 24 13 M 12 16 H 20" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
+          <circle cx="16" cy="11" r="2" fill="#000"/>
+          <path d="M 13 18 L 14 21 L 15 18 M 17 18 L 18 21 L 19 18" fill="#FFF" stroke="#222" strokeWidth="0.5"/>
+        </svg>
+      );
+    } else if (card.name.includes('Airborne') || card.name.includes('regulars') || card.name.includes('1st Infantry')) {
+      // Airborne badge (white parachute on blue/red)
+      return (
+        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]`} viewBox="0 0 32 32" fill="none">
+          <path d="M 2 16 C 2 7 9 2 16 2 C 23 2 30 7 30 16 C 30 25 23 30 16 30 C 9 30 2 25 2 16 Z" fill="#2980B9" stroke="#E74C3C" strokeWidth="1.5"/>
+          <path d="M 2 16 C 2 25 9 30 16 30 C 23 30 30 25 30 16 Z" fill="#C0392B"/>
+          <path d="M 8 15 Q 16 5 24 15 C 24 15 22 18 16 18 C 10 18 8 15 8 15 Z" fill="#FFF" stroke="#222" strokeWidth="1"/>
+          <line x1="8" y1="16" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
+          <line x1="12" y1="18" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
+          <line x1="16" y1="18" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
+          <line x1="20" y1="18" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
+          <line x1="24" y1="16" x2="16" y2="26" stroke="#FFF" strokeWidth="0.7"/>
+        </svg>
+      );
+    } else {
+      // Anchor and Sword (Thủy quân lục chiến or general regional forces)
+      return (
+        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]`} viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" fill="#27AE60" stroke="#F1C40F" strokeWidth="1.5"/>
+          <line x1="16" y1="6" x2="16" y2="26" stroke="#F1C40F" strokeWidth="3"/>
+          <path d="M 8 14 Q 16 24 24 14" stroke="#F1C40F" strokeWidth="2.5" fill="none"/>
+          <line x1="11" y1="10" x2="21" y2="20" stroke="#FFF" strokeWidth="1.5"/>
+        </svg>
+      );
+    }
+  };
+
+  const renderNVA_BranchInsignia = (card: Card, isMini: boolean) => {
+    const sizeClass = isMini ? 'w-4 h-4' : 'w-6 h-6';
+    if (card.artworkKeyword === 'sapper' || card.name.includes('Sapper') || card.id.includes('sapper')) {
+      // Special Recon/Sapper - Dagger and explosives block
+      return (
+        <svg className={`${sizeClass} inline-block mx-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]`} viewBox="0 0 24 24" fill="none">
+          <rect x="4" y="14" width="16" height="6" fill="#D4AC0D" stroke="#111" strokeWidth="1"/>
+          <line x1="12" y1="2" x2="12" y2="16" stroke="#B2BABB" strokeWidth="2.5"/>
+          <line x1="7" y1="16" x2="17" y2="16" stroke="#D4AC0D" strokeWidth="1.5"/>
+        </svg>
+      );
+    } else if (card.unitType === 'Artillery' || card.artworkKeyword === 'machine_gun' || card.name.includes('Artillery')) {
+      // Cannon barrels crossed
+      return (
+        <svg className={`${sizeClass} inline-block mx-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]`} viewBox="0 0 24 24" fill="none">
+          <line x1="4" y1="4" x2="20" y2="20" stroke="#D4AC0D" strokeWidth="3" strokeLinecap="round"/>
+          <line x1="4" y1="20" x2="20" y2="4" stroke="#D4AC0D" strokeWidth="3" strokeLinecap="round"/>
+          <circle cx="12" cy="12" r="3" fill="#FFF" stroke="#111" strokeWidth="1"/>
+        </svg>
+      );
+    } else {
+      // Crossed rifle/sword + Star (Infantry)
+      return (
+        <svg className={`${sizeClass} inline-block mx-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]`} viewBox="0 0 24 24" fill="none">
+          <line x1="4" y1="4" x2="20" y2="20" stroke="#D4AC0D" strokeWidth="2" strokeLinecap="round"/>
+          <line x1="4" y1="20" x2="20" y2="4" stroke="#B2BABB" strokeWidth="1.5" strokeLinecap="round"/>
+          <polygon points="12,5 14,10 19,10 15,13 17,18 12,15 7,18 9,13 5,10 10,10" fill="#D4AC0D" stroke="#111" strokeWidth="0.5"/>
+        </svg>
+      );
+    }
+  };
+
+  const renderNVA_CollarTab = (card: Card, isMini: boolean) => {
+    const numStars = card.rarity === 'Elite' ? 4 : card.rarity === 'Rare' ? 3 : card.rarity === 'Uncommon' ? 2 : 1;
+    const numStripes = (card.rarity === 'Elite' || card.rarity === 'Rare') ? 2 : 1;
+    
+    let tabBg = 'from-red-600 via-red-700 to-red-800'; 
+    if (card.unitType === 'Aircraft') {
+      tabBg = 'from-sky-500 via-sky-600 to-sky-700'; // AA / Air Force
+    } else if (card.unitType === 'Artillery' || card.unitType === 'Tank') {
+      tabBg = 'from-indigo-900 via-indigo-950 to-slate-950'; // Artillery / Heavy weapons
+    }
+    
+    const sizeClass = isMini ? 'h-3.5 px-1 py-0' : 'h-6 px-2 py-0.5';
+    const textClass = isMini ? 'text-[5px]' : 'text-[9px]';
+    const stripeClass = isMini ? 'w-[1px]' : 'w-[1.5px]';
+
+    return (
+      <div 
+        className={`relative flex items-center justify-center font-black ${sizeClass} text-yellow-300 bg-gradient-to-r ${tabBg} border border-yellow-500 overflow-hidden shadow-inner select-none pointer-events-none`}
+        style={{ transform: 'skewX(-15deg)', borderRadius: '2px' }}
+      >
+        {/* Collar Tab vertical yellow stripes */}
+        <div className={`absolute inset-y-0 left-1 ${stripeClass} bg-yellow-400 opacity-90`} />
+        {numStripes === 2 && (
+          <div className={`absolute inset-y-0 left-2 ${stripeClass} bg-yellow-400 opacity-90`} />
+        )}
+
+        {/* Tiny stars */}
+        <span className={`ml-2 font-mono ${textClass} tracking-tighter`} style={{ transform: 'skewX(15deg)' }}>
+          {Array.from({ length: numStars }).map(() => '★').join('')}
+        </span>
+      </div>
+    );
+  };
+
+  const renderVCMedallion = (card: Card, isMini: boolean) => {
+    const sizeClass = isMini ? 'w-4 h-4' : 'w-7 h-7';
+    // Medal "Dũng sĩ diệt Mỹ" or "Huân chương Quyết thắng"
+    if (card.id === 'vc_order_vuon_khong' || card.id === 'vc_order_dia_dao') {
+      return (
+        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" fill="#C0392B" stroke="#D4AC0D" strokeWidth="2"/>
+          <polygon points="16,4 19,11 26,11 21,16 23,23 16,19 9,23 11,16 6,11 13,11" fill="#D4AC0D" stroke="#111" strokeWidth="0.5"/>
+        </svg>
+      );
+    } else {
+      return (
+        <svg className={`${sizeClass} drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`} viewBox="0 0 32 32" fill="none">
+          <path d="M 4 8 L 16 2 L 28 8 L 28 22 Q 16 30 4 22 Z" fill="#D35400" stroke="#F1C40F" strokeWidth="1.5"/>
+          <path d="M 10 16 Q 16 8 22 16 L 20 18 Q 16 14 12 18 Z" fill="#2C3E50" stroke="#111" strokeWidth="0.5"/>
+          <polygon points="16,3 17,6 20,6 18,8 19,11 16,9 13,11 14,8 12,6 15,6" fill="#F1C40F"/>
+        </svg>
+      );
+    }
+  };
+
+  // FACTION VISUAL DEFINITIONS
+  const getFactionShellStyle = (card: Card) => {
+    const isHQ = card.id === 'hq_player' || card.id === 'hq_opponent';
+    
+    switch (card.faction) {
+      case 'US':
+        const isFullColor = card.k > 3 || card.rarity === 'Elite' || card.rarity === 'Rare' || isHQ;
+        return {
+          frameClass: isHQ ? "rounded border-2 border-amber-600/60" : "rounded border-2 border-stone-700/80",
+          bgClass: isFullColor 
+            ? "bg-[#0B1527] bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#1E1B4B] text-amber-50" 
+            : "bg-[#27321B] text-stone-100", // Olive Drab Field look
+          bgStyle: isFullColor ? undefined : {
+            backgroundImage: "repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1.5px, transparent 1.5px, transparent 4px), repeating-linear-gradient(-45deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1.5px, transparent 1.5px, transparent 4px), radial-gradient(circle at center, #2e3c20 0%, #171f0f 100%)"
+          },
+          insigniaPosition: "top-1 left-[32px]",
+          titleFont: "font-sans uppercase tracking-tight font-black text-stone-100",
+          accentColor: "border-amber-500/30 shadow-amber-950/50"
+        };
+      case 'ARVN':
+        // Stamped Aluminum Hand-Cut Look (Beer Can Badge)
+        return {
+          frameClass: "rounded border-2 border-stone-400 shadow-[inset_0_3px_6px_rgba(255,255,255,0.7),_inset_0_-3px_5px_rgba(0,0,0,0.35)]",
+          bgClass: "bg-gradient-to-br from-[#D4D4D8] via-[#F4F4F5] to-[#A1A1AA] text-stone-950",
+          bgStyle: undefined,
+          insigniaPosition: "top-1 left-[32px]",
+          titleFont: "font-serif font-black text-stone-900 border-b border-stone-400/40 pb-0.5",
+          accentColor: "border-stone-500 shadow-stone-950/60"
+        };
+      case 'NVA':
+        // Regular clean Rectangle with collar tab detailing
+        const isInfantry = card.unitType === 'Infantry' || card.type === 'Order';
+        const isAir = card.unitType === 'Aircraft';
+        return {
+          frameClass: "rounded border-2 border-[#821313]",
+          bgClass: isInfantry 
+            ? "bg-[#7c1414] bg-[radial-gradient(circle_at_center,_#901616_0%,_#540404_100%)] text-red-50" 
+            : isAir
+              ? "bg-[#115591] bg-[radial-gradient(circle_at_center,_#166BB7_0%,_#09345C_100%)] text-indigo-50"
+              : "bg-[#19163b] bg-[radial-gradient(circle_at_center,_#242054_0%,_#0B091B_100%)] text-slate-100",
+          bgStyle: undefined,
+          insigniaPosition: "top-1 left-1/2 -translate-x-1/2",
+          titleFont: "font-sans tracking-wide font-black text-yellow-50",
+          accentColor: "border-yellow-600/40 shadow-red-950/60"
+        };
+      case 'VC':
+        // Asymmetric handmade cloth armband divider
+        return {
+          frameClass: "rounded border-2 border-[#8d5d11]",
+          bgClass: "bg-gradient-to-b from-[#8C1313] via-[#101010] to-[#124B8C] text-stone-100",
+          bgStyle: undefined,
+          insigniaPosition: "top-1 left-1.5",
+          titleFont: "font-typewriter font-extrabold text-stone-100 uppercase",
+          accentColor: "border-yellow-500/30 shadow-black"
+        };
+      default:
+        return {
+          frameClass: "rounded border-2 border-stone-800",
+          bgClass: "bg-stone-950 text-stone-100",
+          bgStyle: undefined,
+          insigniaPosition: "top-1 left-7",
+          titleFont: "font-mono font-bold text-stone-100",
+          accentColor: "border-stone-700 shadow-black"
+        };
+    }
+  };
+
+  const getRarityGlow = (rarity: CardRarity) => {
+    switch (rarity) {
+      case 'Elite': return 'shadow-[0_0_20px_rgba(245,158,11,0.4)] border-amber-400/60';
+      case 'Rare': return 'shadow-[0_0_15px_rgba(6,182,212,0.3)] border-cyan-400/60';
+      case 'Uncommon': return 'shadow-[0_0_10px_rgba(34,197,94,0.2)] border-emerald-400/60';
+      default: return 'border-stone-800';
+    }
   };
 
   const getFactionCurrency = (fac: string) => {
@@ -125,32 +380,45 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
   const renderCard = (card: Card, isMini: boolean = false, isSelected: boolean = false) => {
     const currency = getFactionCurrency(card.faction);
+    const factionStyle = getFactionShellStyle(card);
+    const rarityStyle = getRarityGlow(card.rarity);
     const isHQ = card.id === 'hq_player' || card.id === 'hq_opponent';
+    const isAffordable = isHQ || playerKredits >= card.k;
 
     // Scale factors for board (isMini) vs hand (normal)
     const cardClass = isMini 
-      ? `relative w-full h-full rounded-lg overflow-hidden border bg-stone-950 cursor-pointer shadow-xl transition-all duration-300 flex flex-col justify-between ${
+      ? `relative w-full h-full overflow-hidden cursor-pointer shadow-xl transition-all duration-300 flex flex-col justify-between ${factionStyle.frameClass} ${
           isSelected 
-            ? 'border-yellow-400 ring-2 ring-yellow-400/50 bg-stone-900/95 z-20 shadow-2xl scale-102 font-mono' 
-            : 'border-stone-800 hover:border-amber-500 hover:shadow-lg bg-stone-900/90'
+            ? 'border-yellow-400 ring-2 ring-yellow-400/50 z-20 shadow-2xl scale-102 font-mono' 
+            : `${rarityStyle} bg-stone-900/90`
         }` 
-      : `relative flex-shrink-0 h-[14vh] xs:h-[15vh] sm:h-[16vh] lg:h-[17vh] aspect-[3/4.2] rounded-lg overflow-hidden border bg-stone-950 cursor-pointer shadow-xl transition-all duration-300 transform scale-100 hover:scale-105 hover:-translate-y-2 flex flex-col justify-between ${
+      : `relative flex-shrink-0 h-[17vh] xs:h-[18vh] sm:h-[19vh] lg:h-[20vh] aspect-[3/4.2] overflow-hidden cursor-pointer shadow-xl transition-all duration-300 transform scale-100 hover:scale-[1.12] hover:-translate-y-2 flex flex-col justify-between ${factionStyle.frameClass} ${
           isSelected
-            ? 'border-cyan-500 ring-2 ring-cyan-500/50 scale-102 bg-stone-900 shadow-2xl'
-            : 'border-stone-800 hover:border-amber-500 hover:shadow-lg'
+            ? 'border-cyan-500 ring-2 ring-cyan-500/50 scale-103 bg-stone-900 shadow-2xl z-40'
+            : isAffordable 
+              ? `${rarityStyle} hover:border-amber-500 hover:shadow-[0_10px_25px_rgb(0,0,0,0.75)]`
+              : 'grayscale brightness-75 opacity-70 cursor-not-allowed border-stone-900'
         }`;
 
-    const badgeSymbolSize = isMini ? 'text-[6px] px-1 py-0.2' : 'text-[9px] px-1.5 py-0.5';
-    const badgeTypeSize = isMini ? 'text-[5.5px] px-0.5 bg-stone-950/90 text-stone-400' : 'text-[7.5px] px-1 bg-stone-950/90 text-stone-400';
-    const textGap = isMini ? 'p-1 gap-0.5' : 'p-2 gap-1';
-    const titleSize = isMini ? 'text-[7px]' : 'text-[11px]';
-    const opCostSize = isMini ? 'text-[5.5px]' : 'text-[8px]';
-    const abilitySize = isMini ? 'text-[6px] leading-snug line-clamp-1 h-2 min-h-0 border-t border-stone-850/40 my-0.2 pt-0.2' : 'text-[9px] font-typewriter leading-tight line-clamp-3 min-h-[30px] my-1 border-t border-stone-850/50 pt-1';
-    const statsBoxSize = isMini ? 'text-[7.5px] py-0 border-stone-250 font-bold' : 'text-[10px] py-0.5 border-stone-300 font-bold';
-    const statsDivClass = isMini ? 'grid grid-cols-3 bg-stone-100 text-stone-950 border rounded shadow-xs items-center divide-x divide-stone-250 py-0.2' : 'grid grid-cols-3 bg-stone-100 text-stone-950 border rounded shadow-md items-center divide-x divide-stone-300 py-0.5';
+    const badgeSymbolSize = isMini ? 'text-[8px] px-1 py-0.5' : 'text-xs px-1.5 py-0.5';
+    const badgeTypeSize = isMini ? 'text-[6px] px-0.5 bg-stone-950/90 text-stone-400' : 'text-[8.5px] px-1.5 bg-stone-950/90 text-stone-400';
+    const textGap = isMini ? 'p-1 gap-0.5' : 'p-2 gap-1.5';
+    const titleSize = isMini ? 'text-[8px] sm:text-[9px]' : 'text-xs sm:text-sm';
+    const opCostSize = isMini ? 'text-[6.5px]' : 'text-[9.5px]';
+    const abilitySize = isMini ? 'text-[6px] sm:text-[7px] leading-tight line-clamp-1 h-3 min-h-0 border-t border-stone-850/40 my-0.5 pt-0.5' : 'text-[10px] sm:text-xs font-typewriter leading-tight line-clamp-3 min-h-[36px] my-1 border-t border-stone-850/50 pt-1.5 text-stone-350';
+    const statsBoxSize = isMini ? 'text-[8px] sm:text-[9.5px] py-0 border-stone-250 font-bold' : 'text-[11px] sm:text-sm py-0.5 border-stone-300 font-bold';
+    const statsDivClass = isMini ? 'grid grid-cols-3 bg-stone-100 text-stone-950 border rounded shadow-xs items-center divide-x divide-stone-250 py-0.5' : 'grid grid-cols-3 bg-stone-100 text-stone-950 border rounded shadow-lg items-center divide-x divide-stone-300 py-1';
+
+    const motionProps = isMini 
+      ? {
+          initial: { scale: 1.4, y: -25, opacity: 0 },
+          animate: { scale: 1, y: 0, opacity: 1 },
+          transition: { type: "spring", stiffness: 350, damping: 16 }
+        }
+      : {};
 
     return (
-      <div 
+      <motion.div 
         onClick={(e) => {
           if (isMini) {
             e.stopPropagation();
@@ -161,7 +429,18 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           }
         }}
         className={cardClass}
+        {...motionProps}
       >
+        {/* Dynamic Faction Insignia Overlay (SSI / Branch Badge) */}
+        {!isHQ && (
+          <div className={`absolute pointer-events-none select-none z-20 ${factionStyle.insigniaPosition} ${isMini ? 'scale-75 top-[1.5vh]' : 'scale-100 top-2'} opacity-90`}>
+            {card.faction === 'US' && renderUS_SSI(card, isMini)}
+            {card.faction === 'ARVN' && renderARVN_badge(card, isMini)}
+            {card.faction === 'NVA' && renderNVA_BranchInsignia(card, isMini)}
+            {card.faction === 'VC' && card.type === 'Order' && renderVCMedallion(card, isMini)}
+          </div>
+        )}
+
         {/* Top Bar Overlays with Currency Badge */}
         {!isHQ && (
           <div className={`absolute select-none pointer-events-none ${isMini ? 'top-0.5 left-0.5' : 'top-1 left-1'} z-10`}>
@@ -182,31 +461,57 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           </span>
         </div>
 
-        {/* Poster Artwork Render */}
-        <div className="aspect-[4/3] w-full border-b border-stone-950 shrink-0 select-none pointer-events-none relative overflow-hidden">
+        {/* Poster Artwork Render with specific historical styling filters */}
+        <div className={`aspect-[4/3] w-full border-b border-stone-950 shrink-0 select-none pointer-events-none relative overflow-hidden ${
+          card.faction === 'VC' ? 'grayscale brightness-110 sepia-[0.3]' : 
+          card.faction === 'ARVN' ? 'contrast-[1.1] brightness-[0.95] sepia-[0.2]' : ''
+        }`}>
           <PropagandaPoster keyword={card.artworkKeyword} faction={card.faction} name={card.name} />
+          {/* Faction Overlay Scratches/Dents */}
+          <div className="absolute inset-0 opacity-15 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/dust.png')]" />
+
+          {/* Absolute overlays for NVA / VC that previously pushed stats down */}
+          {card.faction === 'NVA' && !isHQ && (
+            <div className={`absolute z-30 shadow-md ${isMini ? 'bottom-0.5 left-0.5 scale-[0.8] origin-bottom-left' : 'bottom-1 left-1.5'}`}>
+              {renderNVA_CollarTab(card, isMini)}
+            </div>
+          )}
+
+          {card.faction === 'VC' && !isHQ && (
+            <div className={`absolute bottom-0 left-0 right-0 z-30 flex overflow-hidden border-t border-yellow-500/30 select-none ${isMini ? 'h-1.5' : 'h-2.5'}`}>
+              <div className="w-1/2 bg-[#B81D1D]/90" />
+              <div className="w-1/2 bg-[#1d52b8]/90" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className={`${isMini ? 'text-[5px]' : 'text-[8.5px]'} text-yellow-400 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]`}>★</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats HUD footer */}
-        <div className={`${textGap} font-mono bg-stone-900 flex-grow flex flex-col justify-between items-stretch select-none`}>
+        <div 
+          style={factionStyle.bgStyle}
+          className={`${textGap} ${factionStyle.bgClass} flex-grow flex flex-col justify-between items-stretch select-none border-t border-white/5`}
+        >
+          {/* Faction Header Banner details */}
           <div className="pointer-events-none">
-            <div className={`font-extrabold text-stone-100 truncate font-sans tracking-wide leading-tight ${titleSize}`}>
+            <div className={`truncate tracking-wide leading-tight ${factionStyle.titleFont} ${titleSize}`}>
               {card.name}
             </div>
             {/* Operation/Action Cost */}
-            <div className={`text-amber-500 uppercase font-black opacity-85 tracking-wider font-mono ${opCostSize}`}>
+            <div className={`uppercase font-black opacity-85 tracking-wider font-mono ${opCostSize} ${card.faction === 'ARVN' ? 'text-blue-900 font-bold' : 'text-amber-500 text-opacity-90'}`}>
               Op Cost: {card.o} {currency.symbol}
             </div>
           </div>
 
           {/* Card ability in small typewriter script */}
-          <p className={`text-stone-400 font-typewriter select-none pointer-events-none ${abilitySize}`}>
+          <p className={`font-typewriter select-none pointer-events-none ${abilitySize} ${card.faction === 'ARVN' ? 'text-stone-850 font-medium' : 'text-stone-300'}`}>
             {card.ability}
           </p>
 
           {/* Bottom stats row for units, or action label for orders */}
           {card.type === 'Unit' ? (
-            <div className={`${statsDivClass} font-mono select-none z-10 shrink-0 pointer-events-none`}>
+            <div className={`${statsDivClass} font-mono select-none z-10 shrink-0 pointer-events-none ${card.faction === 'ARVN' ? 'bg-stone-50 border-stone-400 text-stone-950 font-extrabold' : ''}`}>
               {/* Attack */}
               <span className={`text-red-700 flex items-center justify-center gap-0.5 ${statsBoxSize}`}>{card.atk}</span>
               {/* Class Icon */}
@@ -215,12 +520,16 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
               <span className={`text-emerald-800 flex items-center justify-center gap-0.5 ${statsBoxSize}`}>{card.def}</span>
             </div>
           ) : (
-            <div className={`text-center py-0.2 bg-cyan-950/70 border border-cyan-800/40 text-cyan-400 uppercase tracking-widest rounded shadow-sm select-none shrink-0 border-opacity-40 font-mono font-bold pointer-events-none ${isMini ? 'text-[5.5px]' : 'text-[8px]'}`}>
+            <div className={`text-center py-0.2 uppercase tracking-widest rounded shadow-sm select-none shrink-0 border-opacity-40 font-mono font-bold pointer-events-none ${isMini ? 'text-[5.5px]' : 'text-[8px]'} ${
+              card.faction === 'NVA' ? 'bg-[#901616] border-red-500/40 text-red-50' : 
+              card.faction === 'VC' ? 'bg-[#ffcc00]/20 border-[#ffcc00]/40 text-[#ffcc00]' : 
+              card.faction === 'ARVN' ? 'bg-stone-400/40 border-stone-500 text-stone-900 font-black' : 'bg-cyan-950/70 border-cyan-800/40 text-cyan-400'
+            }`}>
               ⚡ TACTICAL DIRECTIVE
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
     );
   };
 
@@ -236,27 +545,24 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
     // Prepare Player Deck
     const shuffledDeck = [...playerDeck].sort(() => Math.random() - 0.5);
-    const openingHandCount = faction === 'USA' ? 4 : 5; // US draws 4, NVA draws 5 starting
+    const openingHandCount = 4; // Both sides start with 4 cards
     const startingHand = shuffledDeck.slice(0, openingHandCount);
     const remainingDeck = shuffledDeck.slice(openingHandCount);
 
     setPlayerHand(startingHand);
     setPlayerDeckRemaining(remainingDeck);
 
-    // Prepare Opponent Deck (opposite faction)
-    const opponentFaction = faction === 'USA' ? 'NVA' : 'US';
-    const opponentPool = CARD_DATABASE.filter(
-      (c) => c.faction === opponentFaction || (opponentFaction === 'NVA' && c.faction === 'VC') || (opponentFaction === 'US' && c.faction === 'ARVN')
-    );
-    const startingOpponentCount = faction === 'USA' ? 5 : 4;
-    setOpponentDeckSize(15 - startingOpponentCount);
-
-    // Initial Opponent Hand Card Objects
-    const oppHand = Array.from({ length: startingOpponentCount }).map(() => {
-      const idx = Math.floor(Math.random() * opponentPool.length);
-      return opponentPool[idx];
-    });
+    // Prepare Opponent Deck (opposite faction) (Both tactical Directives and Units)
+    const opponentFaction = faction === 'USA' ? 'NVA' : 'USA';
+    const startingOpponentCount = 4;
+    
+    // Generate dynamic opponent deck balancing limits
+    const aiDeck = generateDynamicDeck(opponentFaction, 30);
+    const oppHand = aiDeck.slice(0, startingOpponentCount);
+    const oppRemainingDeck = aiDeck.slice(startingOpponentCount);
+    
     setOpponentHand(oppHand);
+    setOpponentDeckRemaining(oppRemainingDeck);
 
     // Set up the static physical HQ cells on grid base positions
     const isPlayerUS = faction === 'USA';
@@ -278,12 +584,11 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       artworkKeyword: oppFactionName === 'NVA' ? 'hq_hanoi' : 'hq_saigon',
       instanceId: 'hq-opponent-default',
       hasMovedOrAttackedThisTurn: true,
+      unitType: 'Infantry',
       camouflage: false,
       frozenTurns: 0,
       armor: 0,
       isAmphibious: false,
-      isAir: false,
-      isArtillery: false,
     };
 
     const playerHQCard: GridUnit = {
@@ -296,6 +601,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       def: 20,
       maxDef: 20,
       type: 'Unit',
+      unitType: 'Infantry',
       rarity: 'Elite',
       ability: 'Your Command HQ base station. Guard this line with your life!',
       artworkKeyword: playerFactionName === 'US' ? 'hq_saigon' : 'hq_hanoi',
@@ -305,8 +611,6 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       frozenTurns: 0,
       armor: 0,
       isAmphibious: false,
-      isAir: false,
-      isArtillery: false,
     };
 
     setGrid([
@@ -340,17 +644,333 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     });
   }, [opponentHQ, playerHQ]);
 
+  // Sync refs for async access
+  useEffect(() => {
+    playerHQRef.current = playerHQ;
+    opponentHQRef.current = opponentHQ;
+    gridRef.current = grid;
+    playerMaxKreditsRef.current = playerMaxKredits;
+    opponentMaxKreditsRef.current = opponentMaxKredits;
+    opponentHandRef.current = opponentHand;
+  }, [playerHQ, opponentHQ, grid, playerMaxKredits, opponentMaxKredits, opponentHand]);
+
+  // ==========================================
+  // COMMON COMBAT RESOLUTION ENGINE - MANAGES ALL CRITICAL GAME SYNERGIES
+  // ==========================================
+  const resolveCombatEngagement = (
+    attacker: GridUnit,
+    defender: GridUnit,
+    attPos: { r: number; c: number },
+    defPos: { r: number; c: number },
+    nextGrid: Grid,
+    isPlayerAttacking: boolean
+  ) => {
+    const isAttackerArmor = ['us_m113_acav', 'us_m48_patton', 'arvn_7th_armoured'].includes(attacker.id);
+    const isDefenderArmor = ['us_m113_acav', 'us_m48_patton', 'arvn_7th_armoured'].includes(defender.id);
+
+    // Initial Attack values
+    let attAtk = attacker.atk;
+    let defAtk = defender.atk;
+
+    // 1. Synergy - 320th Steel Division (Heavy Armor Breakers: Deals +1 ATK vs armored units)
+    if (attacker.id === 'nva_320th_steel' && isDefenderArmor) {
+      attAtk += 1;
+      addLog(`ARMOR BREAKER: 320th Steel Division deals +1 ATK vs Armored ${defender.name}.`, 'BUFF');
+    }
+    if (defender.id === 'nva_320th_steel' && isAttackerArmor) {
+      defAtk += 1;
+      addLog(`ARMOR BREAKER: 320th Steel Division defends with +1 ATK vs Armored ${attacker.name}.`, 'BUFF');
+    }
+
+    // 2. Synergy - Heavy Machine Gun Team (Anti-Air Flak: Deals x2 damage to Helicopters / Aircraft units)
+    if (attacker.id === 'nva_hmg_team' && defender.unitType === 'Aircraft') {
+      attAtk *= 2;
+      addLog(`ANTI-AIR FLAK: Heavy Machine Gun Team deals x2 damage (${attAtk} ATK) vs Aircraft ${defender.name}!`, 'BUFF');
+    }
+    if (defender.id === 'nva_hmg_team' && attacker.unitType === 'Aircraft') {
+      defAtk *= 2;
+      addLog(`ANTI-AIR FLAK: Heavy Machine Gun Team defends with x2 damage (${defAtk} ATK) vs Aircraft ${attacker.name}!`, 'BUFF');
+    }
+
+    // 3. Synergy - 9th Riverines (+2 ATK inside row index 1 / Conflict Zone)
+    if (attacker.id === 'us_9th_riverines' && attPos.r === 1) {
+      attAtk += 2;
+      addLog(`SWAMP MASTERY: 9th Riverines gains +2 ATK in the Conflict Zone.`, 'BUFF');
+    }
+    if (defender.id === 'us_9th_riverines' && defPos.r === 1) {
+      defAtk += 2;
+      addLog(`SWAMP MASTERY: 9th Riverines defends with +2 ATK in the Conflict Zone.`, 'BUFF');
+    }
+
+    let attackerDef = attacker.def;
+    let defenderDef = defender.def;
+
+    // 4. Combat damage assignment & retaliation exemption
+    let attackerDmgTaken = defAtk;
+    let defenderDmgTaken = attAtk;
+
+    if (attacker.unitType === 'Artillery') {
+      attackerDmgTaken = 0; // artillery takes no retaliation when attacking
+    } else if (attacker.unitType === 'Aircraft') {
+      if (defender.unitType === 'Infantry') {
+        attackerDmgTaken = Math.ceil(defAtk * 0.5); // aircraft takes half damage from infantry
+      }
+    }
+
+    if (defender.unitType === 'Artillery') {
+      attackerDmgTaken = 0; // cannot retaliate core melee
+    }
+
+    // 5. First-Strike AMBUSH Synergy (Local Guerrilla Cell): Always deals damage first, neutralizing melee
+    const isMelee = (u: GridUnit) => u.unitType === 'Infantry' || u.unitType === 'Tank';
+    let isAmbushTriggered = false;
+
+    if (defender.id === 'vc_guerrilla_cell' && isMelee(attacker) && attacker.unitType !== 'Aircraft' && attacker.unitType !== 'Artillery') {
+      isAmbushTriggered = true;
+      addLog(`AMBUSH! Local Guerrilla Cell triggers defensive first-strike vs ${attacker.name}!`, 'BUFF');
+      attackerDef -= attackerDmgTaken;
+      if (attackerDef > 0) {
+        defenderDef -= defenderDmgTaken;
+      } else {
+        addLog(`AMBUSH SUCCESS! ${attacker.name} was neutralized in the bush before returning fire.`, 'DEATH');
+        defenderDmgTaken = 0;
+      }
+    } else if (attacker.id === 'vc_guerrilla_cell' && isMelee(defender) && attacker.unitType !== 'Aircraft' && attacker.unitType !== 'Artillery') {
+      isAmbushTriggered = true;
+      addLog(`AMBUSH! Local Guerrilla Cell triggers offensive first-strike vs ${defender.name}!`, 'BUFF');
+      defenderDef -= defenderDmgTaken;
+      if (defenderDef > 0) {
+        attackerDef -= attackerDmgTaken;
+      } else {
+        addLog(`AMBUSH SUCCESS! Blockade ${defender.name} was eliminated before reacting.`, 'DEATH');
+        attackerDmgTaken = 0;
+      }
+    }
+
+    if (!isAmbushTriggered) {
+      // Escort - 7th Armored Cav (reduces ranged and incoming artillery/airstrike damage taken by 1)
+      const isRangedAttacker = attacker.unitType === 'Artillery' || attacker.unitType === 'Aircraft';
+      if (defender.id === 'arvn_7th_armoured' && isRangedAttacker) {
+        defenderDmgTaken = Math.max(0, defenderDmgTaken - 1);
+        addLog(`ESCORT: 7th Armored Cav heavy steel shield absorbs 1 ranged damage point.`, 'BUFF');
+      }
+      const isRangedDefender = defender.unitType === 'Artillery' || defender.unitType === 'Aircraft';
+      if (attacker.id === 'arvn_7th_armoured' && isRangedDefender) {
+        attackerDmgTaken = Math.max(0, attackerDmgTaken - 1);
+        addLog(`ESCORT: 7th Armored Cav heavy steel shield absorbs 1 ranged damage point.`, 'BUFF');
+      }
+
+      defenderDef -= defenderDmgTaken;
+      attackerDef -= attackerDmgTaken;
+    }
+
+    // 6. Synergy - M48 Patton (Overkill Excess damage direct to enemy HQ Base)
+    if (attacker.id === 'us_m48_patton' && defenderDef < 0) {
+      const overkill = Math.abs(defenderDef);
+      if (isPlayerAttacking) {
+        setOpponentHQ((prev) => Math.max(0, prev - overkill));
+        addLog(`OVERKILL! Allied M48 Patton blast ripples directly to Opponent HQ for ${overkill} damage!`, 'HQ');
+      } else {
+        setPlayerHQ((prev) => Math.max(0, prev - overkill));
+        addLog(`OVERKILL! Enemy M48 Patton blast ripples directly to player HQ for ${overkill} damage!`, 'HQ');
+      }
+    }
+
+    // Apply values to modified objects
+    attacker.def = attackerDef;
+    defender.def = defenderDef;
+
+    const spawnAcavSquad = (pos: { r: number; c: number }) => {
+      nextGrid[pos.r][pos.c] = {
+        id: 'us_acav_squad',
+        name: 'ACAV Squad',
+        faction: 'US',
+        k: 0,
+        o: 1,
+        atk: 2,
+        def: 2,
+        maxDef: 2,
+        type: 'Unit',
+        unitType: 'Infantry',
+        rarity: 'Common',
+        ability: 'Deployed from destroyed M113 ACAV.',
+        artworkKeyword: 'screaming_eagles',
+        instanceId: `acav-squad-${Date.now()}-${Math.random()}`,
+        hasMovedOrAttackedThisTurn: true,
+        hasMovedThisTurn: true,
+        hasAttackedThisTurn: true,
+        camouflage: false,
+        frozenTurns: 0,
+        armor: 0,
+        isAmphibious: false,
+      };
+      addLog(`ACAV RESCUE: ACAV Squad deployed from wreckage of destroyed M113 Armor Carrier.`, 'DEPLOY');
+    };
+
+    // 7. Resolve Defender demise
+    if (defenderDef <= 0) {
+      addLog(`${defender.name} was neutralized in direct engagement.`, 'DEATH');
+      nextGrid[defPos.r][defPos.c] = null;
+      if (defender.id === 'us_m113_acav') {
+        spawnAcavSquad(defPos);
+      }
+
+      // Special 'On Kill' Synergy - Green Beret (5th Special Forces: heals to full and unlocks another action)
+      if (attacker.id === 'us_5th_specops' && attackerDef > 0) {
+        attacker.def = attacker.maxDef;
+        attacker.hasMovedOrAttackedThisTurn = false;
+        attacker.hasMovedThisTurn = false;
+        attacker.hasAttackedThisTurn = false;
+        addLog(`GREEN BERETS: 5th Special Forces neutralized target, fully healed DEF, and gained extra turn movement action link!`, 'BUFF');
+      }
+    } else {
+      nextGrid[defPos.r][defPos.c] = defender;
+      // Battle Hardened - ARVN 1st Infantry gains permanently +1 ATK when surviving defending engagement
+      if (defender.id === 'arvn_1st_infantry' && defenderDef > 0) {
+        defender.baseAtk = (defender.baseAtk ?? defender.atk) + 1;
+        defender.atk = defender.baseAtk;
+        addLog(`BATTLE HARDENED: ARVN 1st Infantry survived attack, permanently gaining +1 ATK (Now ATK:${defender.atk})!`, 'BUFF');
+      }
+    }
+
+    // 8. Resolve Attacker demise
+    if (attackerDef <= 0) {
+      addLog(`${attacker.name} fell in the line of duty.`, 'DEATH');
+      nextGrid[attPos.r][attPos.c] = null;
+      if (attacker.id === 'us_m113_acav') {
+        spawnAcavSquad(attPos);
+      }
+    } else {
+      nextGrid[attPos.r][attPos.c] = {
+        ...attacker,
+        hasAttackedThisTurn: true,
+        hasMovedOrAttackedThisTurn: true
+      };
+    }
+  };
+
+  // ==========================================
+  // COMMON MOVE TRIGGERS - HANDLES MINES, SPECIAL POSITION SYNERGIES, AND DEMOLITION STRIKE
+  // ==========================================
+  const checkMoveTriggers = (r: number, c: number, activeUnit: GridUnit, nextGrid: Grid, isPlayerMoving: boolean) => {
+    if (!activeUnit) return;
+
+    // A. Punji / Ambush Trap Mine triggers
+    const isEnemyEnteringZone = r === 1 && !playerSideFactions.includes(activeUnit.faction);
+    const isPlayerEnteringZone = r === 1 && playerSideFactions.includes(activeUnit.faction);
+
+    // If Unit enters Conflict Zone (r === 1):
+    if (r === 1) {
+      if (isEnemyEnteringZone) {
+        // AI unit enters. Check if Player has active Amber trap
+        const isAmbushActive = activeTraps.some((t) => t.faction === faction && t.cardId === 'nva_trap_amber');
+        if (isAmbushActive) {
+          sound.playExplosion();
+          addLog(`BOOM! Countermeasure: "Trận địa Phục kích" triggers! Punji bamboo stakes hit ${activeUnit.name} for 3 DEF damage!`, 'ATTACK');
+          activeUnit.def -= 3;
+          setActiveTraps((traps) => traps.filter((t) => !(t.faction === faction && t.cardId === 'nva_trap_amber')));
+          
+          if (activeUnit.def <= 0) {
+            addLog(`Enemy ${activeUnit.name} was neutralized by Amber Trap.`, 'DEATH');
+            nextGrid[r][c] = null;
+            return;
+          } else {
+            nextGrid[r][c] = activeUnit;
+          }
+        }
+      } else if (isPlayerEnteringZone) {
+        // Player unit enters. Check if Opponent AI has active Amber trap
+        const isAmbushActive = activeTraps.some((t) => t.faction !== faction && t.cardId === 'nva_trap_amber');
+        if (isAmbushActive) {
+          sound.playExplosion();
+          addLog(`BOOM! Enemy Countermeasure: "Trận địa Phục kích" triggers! Punji spike traps hit ${activeUnit.name} for 3 DEF damage!`, 'ATTACK');
+          activeUnit.def -= 3;
+          setActiveTraps((traps) => traps.filter((t) => !(t.faction !== faction && t.cardId === 'nva_trap_amber')));
+          
+          if (activeUnit.def <= 0) {
+            addLog(`Allied ${activeUnit.name} fell to Punji stakes.`, 'DEATH');
+            nextGrid[r][c] = null;
+            return;
+          } else {
+            nextGrid[r][c] = activeUnit;
+          }
+        }
+      }
+    }
+
+    // B. Demolition Strike (126th SpecOps 'vc_126th_specops')
+    // AI moves Downward, reaches Row index 2 (Allied Base Support Row)
+    // OR Player NVA moves Upward, reaches Row index 0 (Opponent Base Support Row)
+    const isVCSpecOps = activeUnit.id === 'vc_126th_specops';
+    if (isVCSpecOps) {
+      const reachedTargetRow = isPlayerMoving ? (r === 0) : (r === 2);
+      if (reachedTargetRow) {
+        sound.playExplosion();
+        addLog(`DEMOLITION STRIKE! 126th SpecOps reached target Support Line. Commencing self-destruct operation...`, 'BUFF');
+        
+        // Find enemy Artillery or Aircraft unit on that row to destroy
+        let strikeTargetIndex = -1;
+        for (let idx = 0; idx < 5; idx++) {
+          const targetUnit = nextGrid[r][idx];
+          if (targetUnit && !playerSideFactions.includes(targetUnit.faction) === isPlayerMoving) {
+            if (targetUnit.unitType === 'Artillery' || targetUnit.unitType === 'Aircraft') {
+              strikeTargetIndex = idx;
+              break;
+            }
+          }
+        }
+
+        if (strikeTargetIndex !== -1) {
+          const victim = nextGrid[r][strikeTargetIndex]!;
+          addLog(`BOOM! Demolition satchel charge completely obliterated enemy secondary defense unit: ${victim.name}!`, 'DEATH');
+          nextGrid[r][strikeTargetIndex] = null;
+        } else {
+          addLog(`No valid Artillery or Aircraft found on Support Row. Saboteurs blew up local fuel depot instead (HQ takes 2 damage!).`, 'HQ');
+          if (isPlayerMoving) {
+            setOpponentHQ((prev) => Math.max(0, prev - 2));
+          } else {
+            setPlayerHQ((prev) => Math.max(0, prev - 2));
+          }
+        }
+
+        // Self-destruct 126th SpecOps!
+        nextGrid[r][c] = null;
+      }
+    }
+  };
+
   // COMBAT TRIGGERS FOR SPECIAL ABILITIES
   const applyAuraBuffs = (currentGrid: Grid): Grid => {
     // Return grid copying original stats and then applying local dynamic aura increases
-    const tempGrid = currentGrid.map((row) =>
+    const tempGrid = currentGrid.map((row, r) =>
       row.map((unit) => {
         if (!unit) return null;
-        // Reset dynamic buff properties
+        
+        let baseAtk = unit.baseAtk;
+        if (baseAtk === undefined) {
+          if (unit.id === 'hq_player' || unit.id === 'hq_opponent') {
+            baseAtk = 0;
+          } else {
+            baseAtk = CARD_DATABASE.find((c) => c.id === unit.id)?.atk ?? unit.atk;
+          }
+        }
+
+        // Apply constant static positional bonuses
+        let staticAtkBonus = 0;
+        let staticDefBonus = 0;
+
+        // 304th Regulars (+1 DEF inside Row index 1 / Conflict Zone)
+        if (unit.id === 'nva_304th_division' && r === 1) {
+          staticDefBonus += 1;
+        }
+
+        // Reset dynamic buff properties to clean baseline stats
         return {
           ...unit,
-          atk: CARD_DATABASE.find((c) => c.id === unit.id)?.atk || unit.atk,
+          baseAtk: baseAtk,
+          atk: baseAtk + staticAtkBonus,
           def: unit.def, // Def can be altered but maximum remains limit
+          maxDef: (CARD_DATABASE.find((c) => c.id === unit.id)?.maxDef ?? unit.maxDef) + staticDefBonus,
         };
       })
     );
@@ -365,16 +985,33 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
         if (unit) {
           if (unit.id === 'nva_command_vanguard') nvaAuraCount++;
           if (unit.id === 'us_maag_advisors') advisorsOnGrid.push({ r, c });
+
+          // ARVN Regional Forces guard alliance: Gains +2 DEF if sharing a line with a US unit
+          if (unit.id === 'arvn_regional_forces') {
+            const hasUSAlly = row.some((ally) => ally && ally.faction === 'US');
+            if (hasUSAlly) {
+              unit.maxDef += 2;
+              if (unit.def < unit.maxDef) {
+                unit.def += 2;
+              }
+            }
+          }
         }
       });
     });
 
     // 1. Apply NVA Command Vanguard aura
     if (nvaAuraCount > 0) {
-      for (let r = 0; r < 5; r++) {
+      for (let r = 0; r < tempGrid.length; r++) {
         for (let c = 0; c < 5; c++) {
           const unit = tempGrid[r][c];
-          if (unit && (unit.faction === 'NVA' || unit.faction === 'VC') && unit.id !== 'nva_command_vanguard') {
+          if (
+            unit && 
+            (unit.faction === 'NVA' || unit.faction === 'VC') && 
+            unit.id !== 'nva_command_vanguard' &&
+            unit.id !== 'hq_player' &&
+            unit.id !== 'hq_opponent'
+          ) {
             unit.atk += nvaAuraCount;
           }
         }
@@ -390,7 +1027,12 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       checkCoords.forEach(({ r: cr, c: cc }) => {
         if (cc >= 0 && cc < 5) {
           const unit = tempGrid[cr][cc];
-          if (unit && unit.faction === 'ARVN') {
+          if (
+            unit && 
+            unit.faction === 'ARVN' && 
+            unit.id !== 'hq_player' && 
+            unit.id !== 'hq_opponent'
+          ) {
             unit.atk *= 2;
           }
         }
@@ -404,22 +1046,24 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   };
 
   // MULLIGAN CONFIRMATION
-  const handleConfirmMulligan = () => {
+  const handleConfirmMulligan = (cardsToKeep: Card[], cardsToSwap: Card[]) => {
     sound.playRadioStatic();
-    if (mulliganSelected.length > 0) {
-      addLog(`Mulligan Redraft: Exchanging ${mulliganSelected.length} cards.`, 'SYSTEM');
-      const keeperCards = playerHand.filter((c) => !mulliganSelected.includes(c.id));
+    if (cardsToSwap.length > 0) {
+      addLog(`Mulligan Redraft: Exchanging ${cardsToSwap.length} cards.`, 'SYSTEM');
+      
       const pool = [...playerDeckRemaining].sort(() => Math.random() - 0.5);
+      const freshCards = pool.slice(0, cardsToSwap.length);
+      const leftoverDeck = [...pool.slice(cardsToSwap.length), ...cardsToSwap];
 
-      const freshCards = pool.slice(0, mulliganSelected.length);
-      const leftoverDeck = [...pool.slice(mulliganSelected.length), ...playerDeck.filter((c) => mulliganSelected.includes(c.id))];
-
-      setPlayerHand([...keeperCards, ...freshCards]);
+      setPlayerHand([...cardsToKeep, ...freshCards]);
       setPlayerDeckRemaining(leftoverDeck);
     } else {
       addLog(`Commander accepted starting hand unchanged.`, 'SYSTEM');
     }
     setShowMulligan(false);
+    
+    // Start Turn 1 for the player under official gameplay constraints
+    startNextTurn(faction);
   };
 
   const handleToggleMulliganItem = (cardId: string) => {
@@ -431,89 +1075,108 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
   // TURN BEGIN CYCLE
   const startNextTurn = (nextOwner: Faction) => {
+    console.log(`[Turn Sync] Rotating to ${nextOwner}`);
     setCurrentTurnOwner(nextOwner);
-    const newMaxKredits = Math.min(12, maxKredits + (nextOwner === 'USA' ? 1 : 0));
-    if (nextOwner === 'USA') {
-      setMaxKredits(newMaxKredits);
+    setPlayedOrderCard(null); // Clear any ghost cards
+    
+    setTotalTurns((prev) => prev + 1);
+    const updatedTurnCount = totalTurns + 1;
+
+    if (nextOwner === faction) {
+      setPlayerMaxKredits((prev) => {
+        const newMax = Math.min(12, prev + 1);
+        setPlayerKredits(newMax);
+        return newMax;
+      });
+    } else {
+      setOpponentMaxKredits((prev) => {
+        const newMax = Math.min(12, prev + 1);
+        setOpponentKredits(newMax);
+        return newMax;
+      });
     }
 
-    setPlayerKredits(newMaxKredits);
-    setOpponentKredits(newMaxKredits);
+    setGrid((prevGrid) => {
+      // Replenish status of grid units
+      let updatedGrid = prevGrid.map((row) =>
+        row.map((unit) => {
+          if (!unit) return null;
+          const isCurrentOwnerUnit = 
+            (nextOwner === faction && playerSideFactions.includes(unit.faction)) ||
+            (nextOwner !== faction && opponentSideFactions.includes(unit.faction));
+          if (isCurrentOwnerUnit) {
+            return {
+              ...unit,
+              hasMovedOrAttackedThisTurn: false,
+              hasMovedThisTurn: false,
+              hasAttackedThisTurn: false,
+              frozenTurns: Math.max(0, unit.frozenTurns - 1),
+            };
+          }
+          return unit;
+        })
+      );
 
-    // Replenish status of grid units
-    let updatedGrid = grid.map((row) =>
-      row.map((unit) => {
-        if (!unit) return null;
-        if (
-          (nextOwner === 'USA' && (unit.faction === 'US' || unit.faction === 'ARVN')) ||
-          (nextOwner === 'NVA' && (unit.faction === 'NVA' || unit.faction === 'VC'))
-        ) {
-          return {
-            ...unit,
-            hasMovedOrAttackedThisTurn: false,
-            frozenTurns: Math.max(0, unit.frozenTurns - 1),
-          };
-        }
-        return unit;
-      })
-    );
+      // Apply Logistics Group 559th cost reduction to adjacent units
+      updatedGrid = updatedGrid.map((row, r) =>
+        row.map((unit, c) => {
+          if (!unit) return null;
+          // Group 559th logistics reduction check
+          const isLogisticsGroupOnHQ =
+            (r > 0 && updatedGrid[r - 1][c]?.id === 'nva_group_559') ||
+            (r < 2 && updatedGrid[r + 1][c]?.id === 'nva_group_559') ||
+            (c > 0 && updatedGrid[r][c - 1]?.id === 'nva_group_559') ||
+            (c < 4 && updatedGrid[r][c + 1]?.id === 'nva_group_559');
 
-    // Apply Logistics Group 559th cost reduction to adjacent units
-    updatedGrid = updatedGrid.map((row, r) =>
-      row.map((unit, c) => {
-        if (!unit) return null;
-        // Group 559th logistics reduction check
-        const isLogisticsGroupOnHQ =
-          (r > 0 && updatedGrid[r - 1][c]?.id === 'nva_group_559') ||
-          (r < 4 && updatedGrid[r + 1][c]?.id === 'nva_group_559') ||
-          (c > 0 && updatedGrid[r][c - 1]?.id === 'nva_group_559') ||
-          (c < 4 && updatedGrid[r][c + 1]?.id === 'nva_group_559');
+          if (isLogisticsGroupOnHQ && (unit.faction === 'NVA' || unit.faction === 'VC')) {
+            return {
+              ...unit,
+              o: Math.max(0, unit.o - 1),
+            };
+          }
+          return unit;
+        })
+      );
 
-        if (isLogisticsGroupOnHQ && (unit.faction === 'NVA' || unit.faction === 'VC')) {
-          return {
-            ...unit,
-            o: Math.max(0, unit.o - 1),
-          };
-        }
-        return unit;
-      })
-    );
-
-    setGrid(applyAuraBuffs(updatedGrid));
+      return applyAuraBuffs(updatedGrid);
+    });
 
     // Draw card
-    if (nextOwner === 'USA') {
-      if (playerDeckRemaining.length > 0) {
-        sound.playCardDraw();
-        const [drawn, ...rest] = playerDeckRemaining;
-        if (playerHand.length < 9) {
-          setPlayerHand((prev) => [...prev, drawn]);
-          addLog(`Allied Logistics drew: ${drawn.name}.`, 'DEPLOY');
-        } else {
-          addLog(`Hand overflow. Burned ${drawn.name}.`, 'SYSTEM');
-        }
-        setPlayerDeckRemaining(rest);
-      } else {
-        addLog(`WARNING: Allied Reserves depleted! HQ absorbs damage.`, 'HQ');
-        setPlayerHQ((h) => Math.max(0, h - 2));
+    if (nextOwner === faction) {
+      if (updatedTurnCount === 1) {
+        addLog(`COMMAND: Turn 1 Engagement Protocol. Starting hand maintained.`, 'SYSTEM');
+        return;
       }
+
+      setPlayerDeckRemaining((prevDeck) => {
+        if (prevDeck.length > 0) {
+          const [drawn, ...rest] = prevDeck;
+          sound.playCardDraw();
+          setPlayerHand((prevHand) => {
+            if (prevHand.length < 9) {
+              addLog(`Allied Logistics drew: ${drawn.name}.`, 'DEPLOY');
+              return [...prevHand, drawn];
+            } else {
+              addLog(`Hand overflow. Burned ${drawn.name}.`, 'SYSTEM');
+              return prevHand;
+            }
+          });
+          return rest;
+        } else {
+          addLog(`WARNING: Allied Reserves depleted! HQ absorbs damage.`, 'HQ');
+          setPlayerHQ((h) => Math.max(0, h - 2));
+          return prevDeck;
+        }
+      });
     } else {
       // Opponent AI turn actions
-      if (opponentDeckSize > 0) {
-        setOpponentDeckSize((s) => s - 1);
-        const oppPool = CARD_DATABASE.filter(
-          (c) => c.faction === 'NVA' || c.faction === 'VC'
-        );
-        const card = oppPool[Math.floor(Math.random() * oppPool.length)];
-        setOpponentHand((prev) => [...prev, card]);
-      }
       executeOpponentAITurn();
     }
   };
 
   // CLIENT CARD USAGE (DEPLOY CODES)
   const handleSelectCard = (card: Card) => {
-    if (battlePhase !== 'deploy' || currentTurnOwner !== 'USA') return;
+    if (battlePhase !== 'deploy' || currentTurnOwner !== faction) return;
 
     if (card.type === 'Order') {
       sound.playRadioStatic();
@@ -534,6 +1197,11 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   };
 
   const handleDeployHandUnit = (card: Card, r: number, c: number) => {
+    if (card.type !== 'Unit') {
+      addLog(`Command Alert: Order and Countermeasure cards cannot be deployed as physical units.`, 'SYSTEM');
+      setSelectedHandUnit(null);
+      return;
+    }
     const isAirmobile = card.id === 'us_1st_cav_heli';
     const isScreamingEagles = card.id === 'us_101st_airborne';
 
@@ -550,7 +1218,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       return;
     }
 
-    if (grid[r][c] !== null) {
+    if (grid?.[r]?.[c] !== null) {
       addLog(`Tile is already occupied.`, 'SYSTEM');
       setSelectedHandUnit(null);
       return;
@@ -570,32 +1238,72 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       addLog(`Combat Engineers cleared active guerrilla traps.`, 'BUFF');
     }
 
+    const nextGrid = grid.map((row) => [...row]);
+
+    // AIR SUPREMACY - MiG-17 Pilot (Deals 4 damage to enemy Aircraft on deploy)
+    if (card.id === 'nva_mig17_pilot') {
+      let targetUnit: GridUnit | null = null;
+      let targetPos: {r: number, c: number} | null = null;
+      for (let tr = 0; tr < 3; tr++) {
+        for (let tc = 0; tc < 5; tc++) {
+          const u = nextGrid[tr][tc];
+          if (u && opponentSideFactions.includes(u.faction) && u.unitType === 'Aircraft') {
+            targetUnit = u;
+            targetPos = { r: tr, c: tc };
+            break;
+          }
+        }
+      }
+      if (targetUnit && targetPos) {
+        sound.playExplosion();
+        targetUnit.def -= 4;
+        addLog(`AIR SUPREMACY! MiG-17 Fighter Pilot intercepted and struck aircraft ${targetUnit.name} for 4 damage!`, 'ATTACK');
+        if (targetUnit.def <= 0) {
+          addLog(`Enemy ${targetUnit.name} was shot down in the sky!`, 'DEATH');
+          nextGrid[targetPos.r][targetPos.c] = null;
+        } else {
+          nextGrid[targetPos.r][targetPos.c] = targetUnit;
+        }
+      } else {
+        addLog(`No enemy aircraft on board for MiG-17 Pilot to intercept upon deployment.`, 'SYSTEM');
+      }
+    }
+
     const newUnit: GridUnit = {
       ...card,
       instanceId: `unit-${Date.now()}-${r}-${c}`,
-      hasMovedOrAttackedThisTurn: card.id === 'us_f4_phantom',
-      camouflage: false,
-      frozenTurns: card.id === 'us_f4_phantom' ? 0 : 1,
+      hasMovedOrAttackedThisTurn: true, // Summoning sickness
+      hasMovedThisTurn: true,
+      hasAttackedThisTurn: true,
+      camouflage: card.id === 'vc_guerrilla_cell' || card.id === 'nva_304th_division' || card.ability?.toLowerCase().includes('camouflage'),
+      frozenTurns: 0,
       armor: 0,
-      isAmphibious: card.id === 'nva_803rd_riverine',
-      isAir: card.id === 'us_1st_cav_heli' || card.id === 'us_f4_phantom' || card.id === 'nva_mig17_pilot',
-      isArtillery: card.id === 'nva_40th_artillery' || card.id === 'vc_7th_reg_artillery',
+      isAmphibious: card.id === 'nva_803rd_riverine' || card.id === 'us_9th_riverines' || card.ability?.toLowerCase().includes('amphibious'),
     };
 
-    const nextGrid = [...grid];
     nextGrid[r][c] = newUnit;
 
     setGrid(applyAuraBuffs(nextGrid));
     setPlayerKredits((k) => k - card.k);
-    setPlayerHand((prev) => prev.filter((cd) => cd.id !== card.id));
+    setPlayerHand((prev) => {
+      const idx = prev.findIndex((cd) => cd.id === card.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next.splice(idx, 1);
+        return next;
+      }
+      return prev;
+    });
     setSelectedHandUnit(null);
+    setLastDeployedCell({ r, c, isPlayer: true });
+    setTimeout(() => setLastDeployedCell(null), 1000);
 
     addLog(`Deployed ${card.name} to Row ${r + 1}, Lane ${c + 1}.`, 'DEPLOY');
   };
 
   // HANDLES DETAILED MANUAL CLICK AND COMMITTED SELECTION (KARDS-STYLE PLAY)
   const handleGridCellClick = (r: number, c: number) => {
-    if (currentTurnOwner !== 'USA' || battlePhase !== 'deploy') return;
+    if (currentTurnOwner !== faction || battlePhase !== 'deploy') return;
 
     // If there is an active selected unit card from hand, prioritize deploying it!
     if (selectedHandUnit) {
@@ -603,18 +1311,18 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       return;
     }
 
-    const clickedUnit = grid[r][c];
+    const clickedUnit = grid?.[r]?.[c];
 
     // If there is an active selected order card from hand, prioritize casting it!
     if (selectedOrderCard) {
-      handleCastOrder(c);
+      handleCastOrder(c, r);
       return;
     }
 
     // Step 1: No card is selected on the board yet
     if (!selectedBoardUnit) {
       if (clickedUnit) {
-        const isFriendly = clickedUnit.faction === 'US' || clickedUnit.faction === 'ARVN';
+        const isFriendly = playerSideFactions.includes(clickedUnit.faction);
         if (isFriendly) {
           if (clickedUnit.id === 'hq_player') {
             addLog("Your HQ is defensive station. It does not advance.", "SYSTEM");
@@ -642,7 +1350,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
     // Step 2: A friendly card is already selected on the board
     if (selectedBoardUnit) {
-      const selectedUnit = grid[selectedBoardUnit.r][selectedBoardUnit.c];
+      const selectedUnit = grid?.[selectedBoardUnit.r]?.[selectedBoardUnit.c];
       if (!selectedUnit) {
         setSelectedBoardUnit(null);
         return;
@@ -655,12 +1363,14 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       }
 
       // Clicking another active friendly unit switches selection
-      if (clickedUnit && (clickedUnit.faction === 'US' || clickedUnit.faction === 'ARVN')) {
+      if (clickedUnit && playerSideFactions.includes(clickedUnit.faction)) {
         if (clickedUnit.id === 'hq_player') {
           setSelectedBoardUnit(null);
           return;
         }
-        if (clickedUnit.hasMovedOrAttackedThisTurn || clickedUnit.frozenTurns > 0) {
+        const isTank = clickedUnit.unitType === 'Tank';
+        const canAct = isTank ? (!clickedUnit.hasMovedThisTurn || !clickedUnit.hasAttackedThisTurn) : !clickedUnit.hasMovedOrAttackedThisTurn;
+        if (!canAct || clickedUnit.frozenTurns > 0) {
           setSelectedBoardUnit(null);
           return;
         }
@@ -678,59 +1388,85 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
       // Subcase A: Targeted cell is empty - attempting MOVEMENT!
       if (!clickedUnit) {
-        const isSameColumn = selectedBoardUnit.c === c;
         const rowDiff = r - selectedBoardUnit.r;
+        const colDiff = c - selectedBoardUnit.c;
 
-        // KARDS movement rule: Can advance (r - 1) or retreat (r + 1) by 1 row in the exact same column
-        const isValidMove = isSameColumn && (rowDiff === -1 || rowDiff === 1);
+        const isValidMove = Math.abs(rowDiff) <= 1 && Math.abs(colDiff) <= 1 && (rowDiff !== 0 || colDiff !== 0);
+        
         if (!isValidMove) {
-          addLog("Invalid Command. Normal ground battalions advance or retreat by 1 cell in vertical alignment.", "SYSTEM");
+          addLog("Invalid Command. Battalions can only advance to adjacent sectors.", "SYSTEM");
+          setSelectedBoardUnit(null);
+          return;
+        }
+
+        const isTank = selectedUnit.unitType === 'Tank';
+        if (isTank && selectedUnit.hasMovedThisTurn) {
+          addLog("Tanks can only move once per turn.", "SYSTEM");
           setSelectedBoardUnit(null);
           return;
         }
 
         // Execute board move action
         sound.playDeploy();
-        const nextGrid = [...grid];
-        nextGrid[r][c] = { ...selectedUnit, hasMovedOrAttackedThisTurn: true };
+        const nextGrid = grid.map((row) => [...row]);
+        const movingUnitObj = { 
+          ...selectedUnit, 
+          hasMovedThisTurn: true,
+          hasMovedOrAttackedThisTurn: !isTank // For non-tanks, moving ends turn
+        };
+        nextGrid[r][c] = movingUnitObj;
         nextGrid[selectedBoardUnit.r][selectedBoardUnit.c] = null;
+
+        // Check positional/move triggers (Mines, Demolition strike, etc.)
+        checkMoveTriggers(r, c, movingUnitObj, nextGrid, true);
 
         setPlayerKredits(k => k - selectedUnit.o);
         setGrid(applyAuraBuffs(nextGrid));
         addLog(`${selectedUnit.name} moved to Sector Row ${r + 1}, Lane ${c + 1}.`, "MOVE");
-
-        // Mine/Punji triggers check
-        checkMineTrigger(r, c, nextGrid[r][c] as GridUnit);
         setSelectedBoardUnit(null);
         return;
       }
 
       // Subcase B: Targeted cell is preoccupied - attempting COMBAT ATTACK!
-      const isEnemy = clickedUnit.faction === 'NVA' || clickedUnit.faction === 'VC' || clickedUnit.id === 'hq_opponent';
+      const isEnemy = opponentSideFactions.includes(clickedUnit.faction) || clickedUnit.id === 'hq_opponent';
       if (isEnemy) {
         // Range check
         let isRangeValid = false;
-        if (selectedUnit.isAir) {
-          isRangeValid = true; // Air planes sweep and strike anywhere!
-        } else if (selectedUnit.isArtillery) {
-          // Artillery can strike any row in its same vertical alignment
-          isRangeValid = selectedBoardUnit.c === c;
+        if (selectedUnit.unitType === 'Aircraft' || selectedUnit.unitType === 'Artillery') {
+          isRangeValid = true; // Air planes and Artillery can strike any valid target!
         } else {
-          // Regular infantry & tanks: adjacent row or column
-          const rDiff = Math.abs(selectedBoardUnit.r - r);
-          const cDiff = Math.abs(selectedBoardUnit.c - c);
-          isRangeValid = (rDiff <= 1 && cDiff === 0) || (cDiff <= 1 && rDiff === 0);
+          if (clickedUnit.id === 'hq_opponent') {
+            // HQ can be attacked by any ground unit that has reached the frontline (Row 1)
+            isRangeValid = selectedBoardUnit.r === 1;
+          } else {
+            // Regular infantry & tanks: adjacent row or column
+            const rDiff = Math.abs(selectedBoardUnit.r - r);
+            const cDiff = Math.abs(selectedBoardUnit.c - c);
+            isRangeValid = (rDiff <= 1 && cDiff <= 1);
+          }
         }
 
         if (!isRangeValid) {
-          addLog(`Target out of strategic range for ${selectedUnit.name}.`, "SYSTEM");
+          if (clickedUnit.id === 'hq_opponent') {
+            addLog(`HQ out of range. ${selectedUnit.name} must advance to the Frontline (Row 2) to strike the HQ!`, "SYSTEM");
+          } else {
+            addLog(`Target out of strategic range for ${selectedUnit.name}.`, "SYSTEM");
+          }
+          setSelectedBoardUnit(null);
+          return;
+        }
+
+        // Camouflage checks (Line 1 camouflage: cannot be targeted by ranged/artillery attacks until it attacks)
+        const isRangedAttack = selectedUnit.unitType === 'Aircraft' || selectedUnit.unitType === 'Artillery';
+        if (clickedUnit.camouflage && isRangedAttack) {
+          addLog(`TACTICAL BLOCK! Kẻ địch ${clickedUnit.name} đang ẩn nấp ngụy trang kỹ càng, không thể bị khóa mục tiêu từ xa!`, "SYSTEM");
           setSelectedBoardUnit(null);
           return;
         }
 
         // Execute attack sequence!
         sound.playGunshot();
-        const nextGrid = [...grid];
+        const nextGrid = grid.map((row) => [...row]);
 
         if (clickedUnit.id === 'hq_opponent') {
           // Direct attack on the Enemy Command HQ
@@ -739,30 +1475,19 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           const remainingDefense = Math.max(0, opponentHQ - damage);
           setOpponentHQ(remainingDefense);
           addLog(`DIRECT IMPACT! Allied ${selectedUnit.name} bombarded Enemy HQ for ${damage} damage!`, "HQ");
+
+          nextGrid[selectedBoardUnit.r][selectedBoardUnit.c] = { 
+            ...selectedUnit, 
+            hasAttackedThisTurn: true, 
+            hasMovedOrAttackedThisTurn: true,
+            camouflage: false // loses camouflage when attacking
+          };
         } else {
-          // Unit vs standard Unit
-          clickedUnit.def -= selectedUnit.atk;
-          addLog(`Allied ${selectedUnit.name} launched offensive on ${clickedUnit.name}, dealing ${selectedUnit.atk} damage.`, "ATTACK");
+          // Combat Resolver
+          const attacker = { ...selectedUnit, camouflage: false }; // loses camouflage when attacking
+          const defender = { ...clickedUnit };
 
-          // Retaliation checks (Artillery & Air forces take no counter-strike retaliation damage)
-          const canEnemyRetaliate = !selectedUnit.isAir && !selectedUnit.isArtillery && (Math.abs(selectedBoardUnit.r - r) <= 1 && Math.abs(selectedBoardUnit.c - c) <= 1);
-          if (canEnemyRetaliate) {
-            selectedUnit.def -= clickedUnit.atk;
-            addLog(`${clickedUnit.name} retaliated dealing ${clickedUnit.atk} damage to ${selectedUnit.name}.`, "ATTACK");
-          }
-
-          // Bury deceased casualties
-          if (clickedUnit.def <= 0) {
-            addLog(`Enemy ${clickedUnit.name} was neutralized on battlefield.`, "DEATH");
-            nextGrid[r][c] = null;
-          }
-          if (selectedUnit.def <= 0) {
-            addLog(`Allied ${selectedUnit.name} fell in the line of duty.`, "DEATH");
-            nextGrid[selectedBoardUnit.r][selectedBoardUnit.c] = null;
-          } else {
-            // Keep alive but mark completed
-            nextGrid[selectedBoardUnit.r][selectedBoardUnit.c] = { ...selectedUnit, hasMovedOrAttackedThisTurn: true };
-          }
+          resolveCombatEngagement(attacker, defender, selectedBoardUnit, { r, c }, nextGrid, true);
         }
 
         setPlayerKredits(k => k - selectedUnit.o);
@@ -773,7 +1498,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     }
   };
 
-  const handleCastOrder = (colIdx: number) => {
+  const handleCastOrder = (colIdx: number, rowIdx?: number) => {
     if (!selectedOrderCard) return;
     if (playerKredits < selectedOrderCard.k) {
       addLog(`Insufficient Kredits (Need K:${selectedOrderCard.k}).`, 'SYSTEM');
@@ -788,12 +1513,25 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       addLog(`COUNTERMEASURE TRIGGERED! "Trận địa Phục kích" intercepted and canceled Order: ${selectedOrderCard.name}!`, 'SYSTEM');
       setActiveTraps((traps) => traps.filter((t) => !(t.faction === 'NVA' && t.cardId === 'nva_trap_amber')));
       setPlayerKredits((k) => k - selectedOrderCard.k);
-      setPlayerHand((hand) => hand.filter((c) => c.id !== selectedOrderCard.id));
+      setPlayerHand((hand) => {
+        const idx = hand.findIndex((c) => c.id === selectedOrderCard.id);
+        if (idx !== -1) {
+          const next = [...hand];
+          next.splice(idx, 1);
+          return next;
+        }
+        return hand;
+      });
+      
+      const castedCard = selectedOrderCard;
+      setPlayedOrderCard({ card: castedCard, isPlayer: true });
+      setTimeout(() => setPlayedOrderCard(null), 2000);
+
       setSelectedOrderCard(null);
       return;
     }
 
-    let nextGrid = [...grid];
+    let nextGrid = grid.map((row) => [...row]);
 
     if (orderId === 'us_order_hamlet') {
       setPlayerHQArmor((a) => a + 4);
@@ -841,23 +1579,37 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
         return;
       }
     } else if (orderId === 'us_order_airstrike') {
-      // Deal 2 damage to all units in selected column colIdx
-      for (let r = 0; r < 3; r++) {
-        const target = nextGrid[r][colIdx];
-        if (target) {
-          target.def -= 2;
-          if (target.def <= 0) {
-            addLog(`${target.name} incinerated in Column ${colIdx + 1} napalm airstrike.`, 'DEATH');
-            nextGrid[r][colIdx] = null;
-          } else {
-            addLog(`${target.name} struck for 2 damage in Napalm Airstrike.`, 'ORDER');
+      const specificTarget = rowIdx !== undefined ? nextGrid[rowIdx][colIdx] : null;
+      if (specificTarget) {
+        specificTarget.def -= 4;
+        if (specificTarget.def <= 0) {
+          addLog(`${specificTarget.name} destroyed by direct Napalm Strike!`, 'DEATH');
+          nextGrid[rowIdx!][colIdx] = null;
+        } else {
+          addLog(`${specificTarget.name} hit by Napalm Strike! Took 4 damage.`, 'ORDER');
+        }
+      } else {
+        // Deal 2 damage to all units in selected column colIdx
+        for (let r = 0; r < 3; r++) {
+          const target = nextGrid[r][colIdx];
+          if (target) {
+            target.def -= 2;
+            if (target.def <= 0) {
+              addLog(`${target.name} incinerated in Column ${colIdx + 1} napalm airstrike.`, 'DEATH');
+              nextGrid[r][colIdx] = null;
+            } else {
+              addLog(`${target.name} struck for 2 damage in Napalm Airstrike.`, 'ORDER');
+            }
           }
         }
+        addLog(`Napalm strike targeted entire operational Column ${colIdx + 1}!`, 'ORDER');
       }
-      addLog(`Napalm strike targeted entire operational Column ${colIdx + 1}!`, 'ORDER');
     } else if (orderId === 'arvn_order_binh_dinh') {
       // Draw 1 card and give +2 DEF to chosen ARVN unit on column
-      const targetUnit = nextGrid.find((row) => row[colIdx]?.faction === 'ARVN')?.[colIdx];
+      let targetUnit = rowIdx !== undefined && nextGrid[rowIdx][colIdx]?.faction === 'ARVN' 
+        ? nextGrid[rowIdx][colIdx] 
+        : nextGrid.find((row) => row[colIdx]?.faction === 'ARVN')?.[colIdx];
+        
       if (targetUnit) {
         targetUnit.def += 2;
         targetUnit.maxDef += 2;
@@ -880,17 +1632,25 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       );
       addLog(`General mobilization issued to all ARVN divisions on grid.`, 'ORDER');
     } else if (orderId === 'nva_order_hanh_quan') {
-      // Rapid March: Grants +2 ATK this turn to a friendly selected unit on this column
-      const targetUnit = nextGrid.find((row) => row[colIdx] && (row[colIdx]?.faction === 'NVA' || row[colIdx]?.faction === 'VC'))?.[colIdx];
+      // Rapid March: Grants +2 ATK this turn to a friendly selected unit
+      const targetUnit = (rowIdx !== undefined && nextGrid[rowIdx][colIdx] && (nextGrid[rowIdx][colIdx]?.faction === 'NVA' || nextGrid[rowIdx][colIdx]?.faction === 'VC'))
+        ? nextGrid[rowIdx][colIdx]
+        : nextGrid.find((row) => row[colIdx] && (row[colIdx]?.faction === 'NVA' || row[colIdx]?.faction === 'VC'))?.[colIdx];
+
       if (targetUnit) {
-        targetUnit.atk += 2;
+        const currentBase = targetUnit.baseAtk ?? CARD_DATABASE.find((c) => c.id === targetUnit.id)?.atk ?? targetUnit.atk;
+        targetUnit.baseAtk = currentBase + 2;
+        targetUnit.atk = targetUnit.baseAtk;
         addLog(`Rapid March: Friendly unit ${targetUnit.name} gained +2 ATK this turn.`, 'ORDER');
       } else {
         addLog(`Rapid March cast, but no target friendly PAVN/VC force in Column ${colIdx + 1}.`, 'ORDER');
       }
     } else if (orderId === 'nva_order_nguy_trang') {
       // Foliage Camouflage: Grants Camouflage (+3 max DEF and full heal) to a friendly unit
-      const targetUnit = nextGrid.find((row) => row[colIdx] && (row[colIdx]?.faction === 'NVA' || row[colIdx]?.faction === 'VC'))?.[colIdx];
+      const targetUnit = (rowIdx !== undefined && nextGrid[rowIdx][colIdx] && (nextGrid[rowIdx][colIdx]?.faction === 'NVA' || nextGrid[rowIdx][colIdx]?.faction === 'VC'))
+        ? nextGrid[rowIdx][colIdx]
+        : nextGrid.find((row) => row[colIdx] && (row[colIdx]?.faction === 'NVA' || row[colIdx]?.faction === 'VC'))?.[colIdx];
+
       if (targetUnit) {
         targetUnit.maxDef += 3;
         targetUnit.def = targetUnit.maxDef;
@@ -901,7 +1661,10 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       }
     } else if (orderId === 'nva_order_bao_vay') {
       // Surround & Isolate: Freeze 1 selected enemy unit for 1 turn
-      const enemyUnit = nextGrid.find((row) => row[colIdx] && (row[colIdx]?.faction === 'US' || row[colIdx]?.faction === 'ARVN'))?.[colIdx];
+      const enemyUnit = (rowIdx !== undefined && nextGrid[rowIdx][colIdx] && (nextGrid[rowIdx][colIdx]?.faction === 'US' || nextGrid[rowIdx][colIdx]?.faction === 'ARVN'))
+        ? nextGrid[rowIdx][colIdx]
+        : nextGrid.find((row) => row[colIdx] && (row[colIdx]?.faction === 'US' || row[colIdx]?.faction === 'ARVN'))?.[colIdx];
+
       if (enemyUnit) {
         enemyUnit.frozenTurns = 2;
         addLog(`Surround & Isolate: Enemy unit ${enemyUnit.name} frozen for 1 turn.`, 'ORDER');
@@ -913,7 +1676,14 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       nextGrid = nextGrid.map((row) =>
         row.map((unit) => {
           if (unit && (unit.faction === 'NVA' || unit.faction === 'VC')) {
-            return { ...unit, atk: unit.atk + 1, def: unit.def + 1, maxDef: unit.maxDef + 1 };
+            const currentBase = unit.baseAtk ?? CARD_DATABASE.find((c) => c.id === unit.id)?.atk ?? unit.atk;
+            return { 
+              ...unit, 
+              baseAtk: currentBase + 1,
+              atk: currentBase + 1, 
+              def: unit.def + 1, 
+              maxDef: unit.maxDef + 1 
+            };
           }
           return unit;
         })
@@ -969,6 +1739,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           def: 1,
           maxDef: 1,
           type: 'Unit',
+          unitType: 'Infantry',
           rarity: 'Common',
           ability: 'Ambush: First-strike on friendly ground engagements.',
           artworkKeyword: 'vc_guerrilla',
@@ -978,8 +1749,6 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           frozenTurns: 0,
           armor: 0,
           isAmphibious: false,
-          isAir: false,
-          isArtillery: false,
         };
         addLog(`Cu Chi Tunnel transport breached! Local Guerrilla Cell deployed in Column ${colIdx + 1}.`, 'ORDER');
       } else {
@@ -989,19 +1758,29 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       }
     }
 
+    const castedCard = selectedOrderCard;
+    setPlayedOrderCard({ card: castedCard, isPlayer: true });
+    setTimeout(() => setPlayedOrderCard(null), 2000);
+
     setPlayerKredits((k) => k - selectedOrderCard.k);
-    setPlayerHand((hand) => hand.filter((c) => c.id !== selectedOrderCard.id));
+    setPlayerHand((hand) => {
+      const idx = hand.findIndex((c) => c.id === selectedOrderCard.id);
+      if (idx !== -1) {
+        const next = [...hand];
+        next.splice(idx, 1);
+        return next;
+      }
+      return hand;
+    });
     setGrid(applyAuraBuffs(nextGrid));
     setSelectedOrderCard(null);
   };
 
   // UNIT DRAG AND DROP REGISTRY (Modern Pointer)
   const handlePointerDownHand = (e: React.PointerEvent<HTMLDivElement>, card: Card) => {
-    if (battlePhase !== 'deploy' || currentTurnOwner !== 'USA') return;
-    if (card.type === 'Order') {
-      handleSelectCard(card);
-      return;
-    }
+    if (battlePhase !== 'deploy' || currentTurnOwner !== faction) return;
+    if (playerKredits < card.k) return; 
+
     const rect = e.currentTarget.getBoundingClientRect();
     setActiveDrag({
       card,
@@ -1017,20 +1796,24 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   };
 
   const handlePointerDownBoardUnit = (e: React.PointerEvent<HTMLDivElement>, r: number, c: number, unit: GridUnit) => {
-    if (currentTurnOwner !== 'USA' || battlePhase !== 'deploy') return;
-    const isFriendly = unit.faction === 'US' || unit.faction === 'ARVN';
+    if (currentTurnOwner !== faction || battlePhase !== 'deploy') return;
+    const isFriendly = playerSideFactions.includes(unit.faction);
     if (!isFriendly || unit.id === 'hq_player') return;
     if (unit.hasMovedOrAttackedThisTurn || unit.frozenTurns > 0) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startX = rect.left + rect.width / 2;
+    const startY = rect.top + rect.height / 2;
 
     setActiveDrag({
       card: unit,
       sourceType: 'board',
       sourceR: r,
       sourceC: c,
-      startX: e.clientX,
-      startY: e.clientY,
-      currentX: e.clientX,
-      currentY: e.clientY,
+      startX: startX,
+      startY: startY,
+      currentX: startX,
+      currentY: startY,
     });
     setSelectedBoardUnit({ r, c });
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -1039,16 +1822,135 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
       if (activeDrag) {
-        setActiveDrag(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
+        let currentX = e.clientX;
+        let currentY = e.clientY;
+
+        // Snapping logic if we are dragging a board unit (Tactical Arrow)
+        if (activeDrag.sourceType === 'board' && activeDrag.sourceR !== undefined && activeDrag.sourceC !== undefined) {
+          const cells = document.querySelectorAll('[data-grid-r]');
+          let snappedCell: { r: number; c: number; rect: DOMRect } | null = null;
+          for (let i = 0; i < cells.length; i++) {
+            const cell = cells[i];
+            const rect = cell.getBoundingClientRect();
+            if (
+              e.clientX >= rect.left &&
+              e.clientX <= rect.right &&
+              e.clientY >= rect.top &&
+              e.clientY <= rect.bottom
+            ) {
+              const r = parseInt(cell.getAttribute('data-grid-r') || '-1');
+              const c = parseInt(cell.getAttribute('data-grid-c') || '-1');
+              if (r !== -1 && c !== -1) {
+                // Check if eligible
+                const slot = grid?.[r]?.[c];
+                const u = grid?.[activeDrag.sourceR]?.[activeDrag.sourceC];
+                let isEligible = false;
+                
+                if (u && playerKredits >= u.o) {
+                  if (!slot) {
+                    // Eligible Move
+                    const rowDiff = Math.abs(r - activeDrag.sourceR);
+                    const colDiff = Math.abs(c - activeDrag.sourceC);
+                    isEligible = rowDiff <= 1 && colDiff <= 1 && (rowDiff !== 0 || colDiff !== 0);
+                  } else {
+                    // Eligible Attack
+                    const isEnemy = opponentSideFactions.includes(slot.faction) || slot.id === 'hq_opponent';
+                    if (isEnemy) {
+                      if (u.isAir || u.isArtillery) {
+                        isEligible = true;
+                      } else if (slot.id === 'hq_opponent') {
+                        isEligible = activeDrag.sourceR === 1;
+                      } else {
+                        const rDiff = Math.abs(activeDrag.sourceR - r);
+                        const cDiff = Math.abs(activeDrag.sourceC - c);
+                        isEligible = (rDiff <= 1 && cDiff <= 1);
+                      }
+                    }
+                  }
+                }
+                
+                if (isEligible) {
+                  snappedCell = { r, c, rect };
+                }
+              }
+              break;
+            }
+          }
+
+          if (snappedCell) {
+            currentX = snappedCell.rect.left + snappedCell.rect.width / 2;
+            currentY = snappedCell.rect.top + snappedCell.rect.height / 2;
+          }
+        }
+
+        // Snapping logic if we are dragging a hand unit card over eligible cell
+        if (activeDrag.sourceType === 'hand') {
+          const cells = document.querySelectorAll('[data-grid-r]');
+          let snappedCell: { r: number; c: number; rect: DOMRect } | null = null;
+          for (let i = 0; i < cells.length; i++) {
+            const cell = cells[i];
+            const rect = cell.getBoundingClientRect();
+            if (
+              e.clientX >= rect.left &&
+              e.clientX <= rect.right &&
+              e.clientY >= rect.top &&
+              e.clientY <= rect.bottom
+            ) {
+              const r = parseInt(cell.getAttribute('data-grid-r') || '-1');
+              const c = parseInt(cell.getAttribute('data-grid-c') || '-1');
+              if (r !== -1 && c !== -1) {
+                const slot = grid?.[r]?.[c];
+                let isEligible = false;
+                if (activeDrag.card.type === 'Order' || activeDrag.card.type === 'Countermeasure') {
+                  // Orders can target cells with or without units, but usually we just allow snapping search
+                  isEligible = true;
+                } else {
+                  if (!slot) {
+                    const isAirmobile = activeDrag.card.id === 'us_1st_cav_heli';
+                    const isScreamingEagles = activeDrag.card.id === 'us_101st_airborne';
+                    if (isAirmobile || isScreamingEagles) {
+                      isEligible = r === 1 || r === 2;
+                    } else {
+                      isEligible = r === 2;
+                    }
+                  }
+                }
+                if (isEligible) {
+                  snappedCell = { r, c, rect };
+                }
+              }
+              break;
+            }
+          }
+
+          if (snappedCell) {
+            currentX = snappedCell.rect.left + snappedCell.rect.width / 2;
+            currentY = snappedCell.rect.top + snappedCell.rect.height / 2;
+          }
+        }
+
+        setActiveDrag(prev => prev ? { ...prev, currentX, currentY } : null);
       }
     };
 
     const handlePointerUp = (e: PointerEvent) => {
       if (activeDrag) {
-        // Resolve drop using elementsFromPoint
-        const elements = document.elementsFromPoint(e.clientX, e.clientY);
-        const cellNode = elements.find(el => el.hasAttribute('data-grid-r'));
-        
+        const cells = document.querySelectorAll('[data-grid-r]');
+        let cellNode: Element | null = null;
+        for (let i = 0; i < cells.length; i++) {
+          const cell = cells[i];
+          const rect = cell.getBoundingClientRect();
+          if (
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom
+          ) {
+            cellNode = cell;
+            break;
+          }
+        }
+
         let dropProcessed = false;
         if (cellNode) {
           const r = parseInt(cellNode.getAttribute('data-grid-r') || '-1');
@@ -1056,14 +1958,15 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           
           if (r !== -1 && c !== -1) {
             if (activeDrag.sourceType === 'hand') {
-              // Same check as old handleDropOnGrid
-              handleDeployHandUnit(activeDrag.card, r, c);
+              if (activeDrag.card.type === 'Order' || activeDrag.card.type === 'Countermeasure') {
+                setSelectedOrderCard(activeDrag.card);
+                handleCastOrder(c, r);
+              } else {
+                handleDeployHandUnit(activeDrag.card, r, c);
+              }
               dropProcessed = true;
             } else if (activeDrag.sourceType === 'board' && activeDrag.sourceR !== undefined && activeDrag.sourceC !== undefined) {
-              // Try to perform action on target cell using click handler logic
-              // Note: selectedBoardUnit was set on pointerdown, so handleGridCellClick can execute move/attack!
-              if (activeDrag.sourceR !== r || activeDrag.sourceC !== c || grid[r][c] !== null) {
-                // If it's the same cell and there's a unit, it's just a tap selection, not a drop action
+              if (activeDrag.sourceR !== r || activeDrag.sourceC !== c || grid?.[r]?.[c] !== null) {
                 handleGridCellClick(r, c);
                 dropProcessed = true;
               }
@@ -1071,11 +1974,8 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           }
         }
         
-        // If not dropped on a valid cell, but was a simple tap, we keep selecting.
-        // We know it was a tap if they barely moved the pointer.
         const dist = Math.hypot(activeDrag.currentX - activeDrag.startX, activeDrag.currentY - activeDrag.startY);
         if (dist > 15 && !dropProcessed) {
-           // It was a drag, but invalid drop. Close selection.
            if (activeDrag.sourceType === 'hand') setSelectedHandUnit(null);
            if (activeDrag.sourceType === 'board') setSelectedBoardUnit(null);
         }
@@ -1094,7 +1994,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [activeDrag, grid]);
+  }, [activeDrag, grid, playerKredits]);
 
   // Legacy Drop mapping (kept for safety, though custom pointer system handles most now)
   const handleDropOnGrid = (r: number, c: number) => {
@@ -1127,14 +2027,15 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
     // Run round operations for BOTH forces
     // Order: Player bottom-to-top, Opponent top-to-bottom
-    let currentGrid = [...grid];
+    let currentGrid = grid.map((row) => [...row]);
     const isPlayerUS = faction === 'USA';
 
     // Step 1: Scan and simulate Player forces
     for (let r = 2; r >= 0; r--) {
       for (let c = 0; c < 5; c++) {
         const unit = currentGrid[r][c];
-        if (unit && (unit.faction === 'US' || unit.faction === 'ARVN')) {
+        if (unit && playerSideFactions.includes(unit.faction)) {
+          if (unit.hasMovedOrAttackedThisTurn || unit.frozenTurns > 0) continue;
           setActiveUnitActing({ r, c });
           // Highlight delay
           await new Promise((res) => setTimeout(res, 750));
@@ -1169,71 +2070,41 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
           // Check for enemy unit blocking any vertical cell above
           const blockingUnit = currentGrid[targetRow][c];
-          if (blockingUnit && blockingUnit.faction !== 'US' && blockingUnit.faction !== 'ARVN') {
-            // FIGHT!
-            sound.playGunshot();
-            // Deduct Operation Cost
-            setPlayerKredits((k) => k - unit.o);
+          if (blockingUnit && opponentSideFactions.includes(blockingUnit.faction)) {
+            // Camouflage check in auto-combat
+            const isRanged = unit.unitType === 'Artillery' || unit.unitType === 'Aircraft';
+            if (blockingUnit.camouflage && isRanged) {
+              addLog(`AUTO-COMBAT CAP: ${unit.name} cannot lock target or bombard camouflaged ${blockingUnit.name}!`, 'SYSTEM');
+            } else {
+              // FIGHT!
+              sound.playGunshot();
+              // Deduct Operation Cost
+              setPlayerKredits((k) => k - unit.o);
 
-            const isHeavyMachineGunVS_Air = unit.id === 'nva_hmg_team' && blockingUnit.isAir;
-            const steelDivisionVS_Armor = unit.id === 'nva_320th_steel' && (blockingUnit.id === 'us_m48_patton' || blockingUnit.id === 'us_m113_acav');
+              const attObj = { ...unit, camouflage: false };
+              const defObj = { ...blockingUnit };
 
-            let dealDmg = unit.atk;
-            if (isHeavyMachineGunVS_Air) dealDmg *= 2;
-            if (steelDivisionVS_Armor) dealDmg += 1;
+              resolveCombatEngagement(attObj, defObj, { r, c }, { r: targetRow, c }, currentGrid, true);
 
-            blockingUnit.def -= dealDmg;
-            addLog(`Allied ${unit.name} fired on ${blockingUnit.name} dealing ${dealDmg} damage.`, 'ATTACK');
-
-            // Retaliation? Artillery ignores retaliation when making Support attack
-            const isArtillery = unit.isArtillery && r === 2; // Row 2 is Player Support line
-            if (!isArtillery) {
-              unit.def -= blockingUnit.atk;
-              addLog(`${blockingUnit.name} retaliated dealing ${blockingUnit.atk} damage to ${unit.name}.`, 'ATTACK');
+              currentGrid = applyAuraBuffs(currentGrid);
+              setGrid([...currentGrid]);
             }
-
-            // Clean up burials
-            if (blockingUnit.def <= 0) {
-              addLog(`${blockingUnit.name} was eliminated.`, 'DEATH');
-
-              // Death trigger: M113 ACAV spawn a 2/2 ACAV Squad Infantry
-              if (blockingUnit.id === 'us_m113_acav') {
-                currentGrid[targetRow][c] = {
-                  ...blockingUnit,
-                  id: 'spawn_acav_inf',
-                  name: 'ACAV Infantry',
-                  def: 2,
-                  maxDef: 2,
-                  atk: 2,
-                  o: 1,
-                  type: 'Unit',
-                  rarity: 'Common',
-                  ability: 'Ejected troop squad from destroyed armored carrier.',
-                  artworkKeyword: 'militia',
-                  instanceId: `acav-spawn-${Date.now()}`,
-                } as GridUnit;
-              } else {
-                currentGrid[targetRow][c] = null;
-              }
-            }
-
-            if (unit.def <= 0) {
-              addLog(`Allied ${unit.name} was defeated.`, 'DEATH');
-              currentGrid[r][c] = null;
-            }
-
-            currentGrid = applyAuraBuffs(currentGrid);
-            setGrid([...currentGrid]);
           } else {
             // No blocking enemy, MOVE FORWARD!
             // Cost paid
             setPlayerKredits((k) => k - unit.o);
-            currentGrid[targetRow][c] = { ...unit, hasMovedOrAttackedThisTurn: true };
+            const isTank = unit.unitType === 'Tank';
+            const movingUnit = { 
+              ...unit, 
+              hasMovedThisTurn: true,
+              hasMovedOrAttackedThisTurn: !isTank 
+            };
+            currentGrid[targetRow][c] = movingUnit;
             currentGrid[r][c] = null;
             addLog(`Allied ${unit.name} advanced forward to operational Line ${3 - targetRow}.`, 'MOVE');
 
-            // Punji trigger check
-            checkMineTrigger(targetRow, c, currentGrid[targetRow][c] as GridUnit);
+            // Positional/Move triggers check
+            checkMoveTriggers(targetRow, c, movingUnit, currentGrid, true);
 
             currentGrid = applyAuraBuffs(currentGrid);
             setGrid([...currentGrid]);
@@ -1244,11 +2115,12 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
     // Step 2: Scan and simulate Opponent NVA forces (moves from Row 0 downwards to Row 2 Player HQ)
     for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 5; c++) {
-        const unit = currentGrid[r][c];
-        if (unit && (unit.faction === 'NVA' || unit.faction === 'VC')) {
-          setActiveUnitActing({ r, c });
-          await new Promise((res) => setTimeout(res, 750));
+       for (let c = 0; c < 5; c++) {
+         const unit = currentGrid[r][c];
+         if (unit && opponentSideFactions.includes(unit.faction)) {
+           if (unit.hasMovedOrAttackedThisTurn || unit.frozenTurns > 0) continue;
+           setActiveUnitActing({ r, c });
+           await new Promise((res) => setTimeout(res, 750));
 
           if (unit.frozenTurns > 0) {
             continue;
@@ -1272,39 +2144,39 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           }
 
           const blockingUnit = currentGrid[targetRow][c];
-          if (blockingUnit && blockingUnit.faction !== 'NVA' && blockingUnit.faction !== 'VC') {
-            // FIGHT!
-            sound.playGunshot();
-            setOpponentKredits((k) => k - unit.o);
+          if (blockingUnit && playerSideFactions.includes(blockingUnit.faction)) {
+            // Camouflage check in AI auto-combat
+            const isRanged = unit.unitType === 'Artillery' || unit.unitType === 'Aircraft';
+            if (blockingUnit.camouflage && isRanged) {
+              addLog(`AI AUTO-COMBAT CAP: Enemy ${unit.name} cannot pinpoint camouflaged Allied ${blockingUnit.name}!`, 'SYSTEM');
+            } else {
+              // FIGHT!
+              sound.playGunshot();
+              setOpponentKredits((k) => k - unit.o);
 
-            let dealDmg = unit.atk;
-            blockingUnit.def -= dealDmg;
-            addLog(`Opponent ${unit.name} charged ${blockingUnit.name} for ${dealDmg} damage.`, 'ATTACK');
+              const attObj = { ...unit, camouflage: false };
+              const defObj = { ...blockingUnit };
 
-            const isOpponentArtillery = unit.isArtillery && r === 0; // Row 0 is Opponent Support
-            if (!isOpponentArtillery) {
-              unit.def -= blockingUnit.atk;
-              addLog(`${blockingUnit.name} defended, retaliating with ${blockingUnit.atk} damage to ${unit.name}.`, 'ATTACK');
+              resolveCombatEngagement(attObj, defObj, { r, c }, { r: targetRow, c }, currentGrid, false);
+
+              currentGrid = applyAuraBuffs(currentGrid);
+              setGrid([...currentGrid]);
             }
-
-            // Burials
-            if (blockingUnit.def <= 0) {
-              addLog(`Allied ${blockingUnit.name} was neutralized.`, 'DEATH');
-              currentGrid[targetRow][c] = null;
-            }
-            if (unit.def <= 0) {
-              addLog(`Opponent ${unit.name} collapsed.`, 'DEATH');
-              currentGrid[r][c] = null;
-            }
-
-            currentGrid = applyAuraBuffs(currentGrid);
-            setGrid([...currentGrid]);
           } else {
-            // Walk forward downwards!
+            // MOVE!
             setOpponentKredits((k) => k - unit.o);
-            currentGrid[targetRow][c] = { ...unit, hasMovedOrAttackedThisTurn: true };
+            const isTank = unit.unitType === 'Tank';
+            const movingUnit = { 
+              ...unit, 
+              hasMovedThisTurn: true,
+              hasMovedOrAttackedThisTurn: !isTank 
+            };
+            currentGrid[targetRow][c] = movingUnit;
             currentGrid[r][c] = null;
             addLog(`Opponent ${unit.name} slipped forward in the shadows to Line ${targetRow + 1}.`, 'MOVE');
+
+            // Positional/Move triggers check
+            checkMoveTriggers(targetRow, c, movingUnit, currentGrid, false);
 
             currentGrid = applyAuraBuffs(currentGrid);
             setGrid([...currentGrid]);
@@ -1318,7 +2190,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
     // End of full round loop: replenish player turn
     // If game has ended (HQ falls to 0), trigger GameOver scene instead
-    startNextTurn('USA');
+    startNextTurn(faction);
   };
 
   // CHECK WIN / DEFEAT STATES
@@ -1336,215 +2208,557 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
   // OPPONENT AI MULTI-STEP MANIFEST PLAY EXPERIENCE (PVE DECISION CRATE)
   const executeOpponentAITurn = async () => {
-    addLog(`OPPONENT CHANNELS CONNECTED. Enemy commander devising counter-offensive...`, 'SYSTEM');
-    await new Promise((res) => setTimeout(res, 1200));
+    try {
+      addLog(`OPPONENT CHANNELS CONNECTED. Enemy commander devising counter-offensive...`, 'SYSTEM');
+      await new Promise((res) => setTimeout(res, 1200));
 
-    // Step A: Draw 1 card from deck pool
-    let currentHand = [...opponentHand];
-    const oppFaction = faction === 'USA' ? 'NVA' : 'US';
-    const opponentPool = CARD_DATABASE.filter(
-      (c) => c.faction === oppFaction || (oppFaction === 'NVA' && c.faction === 'VC') || (oppFaction === 'US' && c.faction === 'ARVN')
-    );
+      // Step A: Draw 1 card from deck pool (All card types allowed)
+      // Skip draw if AI starts first and it is actually Turn 1 (not possible with current setup as player starts)
+      // but let's be robust and respect 1 card draw.
+      let currentHand = [...opponentHandRef.current];
+      let currentOppDeck = [...opponentDeckRemaining];
 
-    if (opponentDeckSize > 0) {
-      setOpponentDeckSize((s) => s - 1);
-      const drawnCard = opponentPool[Math.floor(Math.random() * opponentPool.length)];
-      currentHand.push(drawnCard);
-      setOpponentHand(currentHand);
-      sound.playCardDraw();
-      addLog(`Intel report: Opponent drew 1 tactical deployment card.`, 'SYSTEM');
-      await new Promise((res) => setTimeout(res, 1000));
-    }
+      if (currentOppDeck.length > 0) {
+        const drawnCard = currentOppDeck.shift()!;
+        currentHand.push(drawnCard);
+        setOpponentHand(currentHand);
+        setOpponentDeckRemaining(currentOppDeck);
+        sound.playCardDraw();
+        addLog(`Intel report: Opponent drew 1 tactical deployment card.`, 'SYSTEM');
+        await new Promise((res) => setTimeout(res, 1000));
+      }
 
-    // Set opponent active budget for this turn
-    let aiKredits = maxKredits;
-    setOpponentKredits(aiKredits);
+      // Set opponent active budget for this turn
+      let aiKredits = opponentMaxKreditsRef.current;
+      setOpponentKredits(aiKredits);
 
-    let nextGrid = [...grid];
+      let nextGrid = gridRef.current.map((row) => [...row]);
 
-    // Step B: Deploy affordable cards from hand to enemy's support sector rows (Row 0 only now)
-    for (let i = 0; i < currentHand.length; i++) {
-      const card = currentHand[i];
-      if (card && aiKredits >= card.k) {
-        let placed = false;
-        // Search row 0, preferring lanes that do not block the active HQ card at Row 0, Col 2
-        for (let r = 0; r <= 0 && !placed; r++) {
-          const checkCols = [0, 1, 3, 4].filter(c => !(c === 2));
-          for (const c of checkCols) {
-            if (!nextGrid[r][c]) {
-              const newAIUnit: GridUnit = {
-                ...card,
-                instanceId: `ai-unit-${Date.now()}-${Math.random()}`,
-                hasMovedOrAttackedThisTurn: true, // Cannot act on deploy turn
-                camouflage: false,
-                frozenTurns: card.id === 'nva_mig17_pilot' ? 0 : 1, // MiG blitz pilot acts immediately
-                armor: 0,
-                isAmphibious: card.id === 'nva_803rd_riverine',
-                isAir: card.id === 'nva_mig17_pilot',
-                isArtillery: card.id === 'nva_40th_artillery' || card.id === 'vc_7th_reg_artillery',
-              };
-              nextGrid[r][c] = newAIUnit;
+      // Step B: Deploy affordable cards from hand
+      for (let i = 0; i < currentHand.length; i++) {
+        if (playerHQRef.current <= 0 || opponentHQRef.current <= 0) return;
+        const card = currentHand[i];
+        if (card && aiKredits >= card.k) {
+          if (card.type === 'Unit') {
+            let placed = false;
+            // Search row 0 (Opponent support row)
+            for (let r = 0; r <= 0 && !placed; r++) {
+              const checkCols = [0, 1, 3, 4].filter(c => !(c === 2));
+              for (const c of checkCols) {
+                if (!nextGrid[r][c]) {
+                  const newAIUnit: GridUnit = {
+                    ...card,
+                    instanceId: `ai-unit-${Date.now()}-${Math.random()}`,
+                    hasMovedOrAttackedThisTurn: true, // Summoning sickness
+                    hasMovedThisTurn: true,
+                    hasAttackedThisTurn: true,
+                    camouflage: card.id === 'vc_guerrilla_cell' || card.id === 'nva_304th_division' || card.ability?.toLowerCase().includes('camouflage'),
+                    frozenTurns: 0,
+                    armor: 0,
+                    isAmphibious: card.id === 'nva_803rd_riverine' || card.id === 'us_9th_riverines' || card.ability?.toLowerCase().includes('amphibious'),
+                  };
+
+                  // AIR SUPREMACY - MiG-17 Pilot (Deals 4 damage to enemy Aircraft on deploy)
+                  if (card.id === 'nva_mig17_pilot') {
+                    let targetUnit: GridUnit | null = null;
+                    let targetPos: {r: number, tc: number} | null = null;
+                    for (let tr = 0; tr < 3; tr++) {
+                      for (let tc = 0; tc < 5; tc++) {
+                        const u = nextGrid[tr][tc];
+                        if (u && playerSideFactions.includes(u.faction) && u.unitType === 'Aircraft') {
+                          targetUnit = u;
+                          targetPos = { r: tr, tc };
+                          break;
+                        }
+                      }
+                    }
+                    if (targetUnit && targetPos) {
+                      sound.playExplosion();
+                      targetUnit.def -= 4;
+                      addLog(`AIR SUPREMACY! Enemy MiG-17 Fighter Pilot has intercepted and struck your aircraft ${targetUnit.name} during deployment for 4 DEF damage!`, 'ATTACK');
+                      if (targetUnit.def <= 0) {
+                        addLog(`Your aircraft ${targetUnit.name} was shot down!`, 'DEATH');
+                        nextGrid[targetPos.r][targetPos.tc] = null;
+                      } else {
+                        nextGrid[targetPos.r][targetPos.tc] = targetUnit;
+                      }
+                    } else {
+                      addLog(`No enemy aircraft on board for MiG-17 Pilot to intercept upon deployment.`, 'SYSTEM');
+                    }
+                  }
+
+                  nextGrid[r][c] = newAIUnit;
+                  aiKredits -= card.k;
+                  setOpponentKredits(aiKredits);
+                  currentHand.splice(i, 1);
+                  i--; // shift index down
+                  setOpponentHand([...currentHand]);
+
+                  setLastDeployedCell({ r, c, isPlayer: false });
+                  setTimeout(() => setLastDeployedCell(null), 1000);
+
+                  sound.playDeploy();
+                  addLog(`Enemy deployed: ${card.name} covertly in Sector Row ${r + 1}, Lane ${c + 1}.`, 'DEPLOY');
+                  placed = true;
+                  nextGrid = applyAuraBuffs(nextGrid);
+                  setGrid(nextGrid.map((row) => [...row]));
+                  await new Promise((res) => setTimeout(res, 1000));
+                  break;
+                }
+              }
+            }
+          } else if (card.type === 'Order' || card.type === 'Countermeasure') {
+            // Check Player's Radar Trap to counter Enemy Order
+            const isRadarCountered = activeTraps.some((t) => t.faction === faction && t.cardId === 'us_trap_radar');
+            if (isRadarCountered) {
+              sound.playRadioStatic();
+              addLog(`COUNTERMEASURE TRIGGERED! Your "Mạng lưới Radar" intercepted and canceled Enemy Order: ${card.name}!`, 'SYSTEM');
+              setActiveTraps((traps) => traps.filter((t) => !(t.faction === faction && t.cardId === 'us_trap_radar')));
               aiKredits -= card.k;
               setOpponentKredits(aiKredits);
               currentHand.splice(i, 1);
               i--; // shift index down
               setOpponentHand([...currentHand]);
-
-              sound.playDeploy();
-              addLog(`Enemy deployed: ${card.name} covertly in Sector Row ${r + 1}, Lane ${c + 1}.`, 'DEPLOY');
-              placed = true;
-              nextGrid = applyAuraBuffs(nextGrid);
-              setGrid([...nextGrid]);
-              await new Promise((res) => setTimeout(res, 1000));
-              break;
+              await new Promise((res) => setTimeout(res, 1200));
+              continue;
             }
-          }
-        }
-      }
-    }
 
-    // Step C: Action already deployed opponent units on the field
-    const enemyBattalions: { r: number; c: number }[] = [];
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 5; c++) {
-        const u = nextGrid[r][c];
-        const isEnemyUnit = u && (u.faction === 'NVA' || u.faction === 'VC' || u.faction === 'ARVN' && faction !== 'USA') && u.id !== 'hq_opponent';
-        if (isEnemyUnit) {
-          enemyBattalions.push({ r, c });
-        }
-      }
-    }
-
-    // Sort battalions from bottom-to-top so units closest to row 2 (Player HQ) operate first!
-    enemyBattalions.sort((a, b) => b.r - a.r);
-
-    for (const pos of enemyBattalions) {
-      const u = nextGrid[pos.r][pos.c];
-      if (!u) continue;
-
-      if (u.frozenTurns > 0) {
-        // decrement freeze
-        nextGrid[pos.r][pos.c] = { ...u, frozenTurns: Math.max(0, u.frozenTurns - 1) };
-        setGrid([...nextGrid]);
-        continue;
-      }
-
-      if (aiKredits >= u.o) {
-        // Action decision logic
-        
-        // 1. Can we directly strike the Player HQ?
-        // Player HQ is at Row 2, Col 2.
-        const isDirectAbovePlayerHQ = pos.r === 1 && pos.c === 2;
-        const isNearPlayerHQ = pos.r >= 1 && Math.abs(pos.c - 2) <= 1;
-
-        if (isDirectAbovePlayerHQ || (u.isAir && isNearPlayerHQ) || (u.isArtillery && pos.c === 2)) {
-          // Blast player Command base!
-          sound.playExplosion();
-          const damage = u.atk;
-          setPlayerHQ((v) => Math.max(0, v - damage));
-          aiKredits -= u.o;
-          setOpponentKredits(aiKredits);
-          addLog(`BASE CONTACT! Enemy ${u.name} shelled player HQ base for ${damage} damage!`, 'HQ');
-          await new Promise((res) => setTimeout(res, 1000));
-          continue;
-        }
-
-        // 2. Can we attack any player infantry/tanks blocking directly below?
-        let attackTarget: { r: number; c: number } | null = null;
-        
-        const rowBelow = pos.r + 1;
-        if (rowBelow <= 2) {
-          const pot = nextGrid[rowBelow][pos.c];
-          if (pot && (pot.faction === 'US' || pot.faction === 'ARVN' || pot.id === 'hq_player')) {
-            attackTarget = { r: rowBelow, c: pos.c };
-          }
-        }
-
-        // Artillery: check entire column
-        if (u.isArtillery && !attackTarget) {
-          for (let rowIdx = pos.r + 1; rowIdx <= 2; rowIdx++) {
-            const pot = nextGrid[rowIdx][pos.c];
-            if (pot && (pot.faction === 'US' || pot.faction === 'ARVN')) {
-              attackTarget = { r: rowIdx, c: pos.c };
-              break;
+            // Validate if order actually has a target before executing
+            let hasValidTarget = true; // Assume true for global orders
+            const orderId = card.id;
+            if (orderId === 'nva_order_hanh_quan' || orderId === 'nva_order_nguy_trang') {
+              hasValidTarget = nextGrid.some(row => row.some(u => u && (u.faction === 'NVA' || u.faction === 'VC')));
+            } else if (orderId === 'nva_order_bao_vay') {
+              hasValidTarget = nextGrid.some(row => row.some(u => u && (u.faction === 'US' || u.faction === 'ARVN')));
+            } else if (orderId === 'vc_order_vuon_khong') {
+              hasValidTarget = nextGrid.some(row => row.some(u => u && (u.faction === 'VC' || u.faction === 'NVA') && u.def < u.maxDef));
+            } else if (orderId === 'vc_order_dia_dao') {
+              hasValidTarget = nextGrid[0].some(u => !u) || nextGrid[1].some(u => !u);
             }
-          }
-        }
-
-        // Air planes: attack any friendly target found
-        if (u.isAir && !attackTarget) {
-          for (let r = 2; r >= 0; r--) {
-            for (let c = 0; c < 5; c++) {
-              const pot = nextGrid[r][c];
-              if (pot && (pot.faction === 'US' || pot.faction === 'ARVN')) {
-                attackTarget = { r, c };
-                break;
-              }
+            
+            if (!hasValidTarget) {
+              continue; // Skip playing this order card
             }
-            if (attackTarget) break;
-          }
-        }
 
-        if (attackTarget) {
-          const friendlyUnit = nextGrid[attackTarget.r][attackTarget.c];
-          if (friendlyUnit) {
-            sound.playGunshot();
-            aiKredits -= u.o;
+            // Deduct kredits and remove from opponent hand
+            aiKredits -= card.k;
             setOpponentKredits(aiKredits);
+            currentHand.splice(i, 1);
+            i--; // shift index down
+            setOpponentHand([...currentHand]);
 
-            if (friendlyUnit.id === 'hq_player') {
-              setPlayerHQ((v) => Math.max(0, v - u.atk));
-              addLog(`DIRECT IMPACT! Enemy ${u.name} slammed ${friendlyUnit.name} for ${u.atk} damage.`, 'HQ');
-            } else {
-              friendlyUnit.def -= u.atk;
-              addLog("Opponent " + u.name + " engaged Allied " + friendlyUnit.name + ", executing " + u.atk + " damage.", 'ATTACK');
+            // Visual overlay activation!
+            setPlayedOrderCard({ card, isPlayer: false });
+            addLog(`Enemy command executed Tactical Directive: "${card.name}"`, 'ORDER');
+            sound.playRadioStatic();
+            sound.playExplosion();
 
-              const canRetaliate = !u.isAir && !u.isArtillery && (Math.abs(pos.r - attackTarget.r) <= 1 && Math.abs(pos.c - attackTarget.c) <= 1);
-              if (canRetaliate) {
-                u.def -= friendlyUnit.atk;
-                addLog(`Allied ${friendlyUnit.name} retaliated dealing ${friendlyUnit.atk} damage.`, 'ATTACK');
-              }
+            // Wait for display time
+            await new Promise((res) => setTimeout(res, 2500));
+            setPlayedOrderCard(null);
 
-              if (friendlyUnit.def <= 0) {
-                addLog(`Allied ${friendlyUnit.name} was mobilized off the theater (destroyed).`, 'DEATH');
-                nextGrid[attackTarget.r][attackTarget.c] = null;
+            // Execute tactical directive action!
+            if (orderId === 'nva_order_hanh_quan') {
+              let found = false;
+              for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 5; c++) {
+                  const u = nextGrid[r][c];
+                  if (u && (u.faction === 'NVA' || u.faction === 'VC')) {
+                    const currentBase = u.baseAtk ?? CARD_DATABASE.find((cd) => cd.id === u.id)?.atk ?? u.atk;
+                    u.baseAtk = currentBase + 2;
+                    u.atk = u.baseAtk;
+                    addLog(`Enemy Rapid March: friendly ${u.name} gained +2 ATK.`, 'ORDER');
+                    found = true;
+                    break;
+                  }
+                }
+                if (found) break;
               }
-              if (u.def <= 0) {
-                addLog(`Enemy ${u.name} collapsed under defense fire.`, 'DEATH');
-                nextGrid[pos.r][pos.c] = null;
+            } else if (orderId === 'nva_order_nguy_trang') {
+              let found = false;
+              for (let r = 0; r < 3; r++) {
+                 for (let c = 0; c < 5; c++) {
+                   const u = nextGrid[r][c];
+                   if (u && (u.faction === 'NVA' || u.faction === 'VC')) {
+                     u.maxDef += 3;
+                     u.def = u.maxDef;
+                     u.camouflage = true;
+                     addLog(`Enemy Foliage Camouflage: friendly ${u.name} gained +3 Max DEF and camouflage status.`, 'ORDER');
+                     found = true;
+                     break;
+                   }
+                 }
+                 if (found) break;
+               }
+            } else if (orderId === 'nva_order_bao_vay') {
+              let found = false;
+              for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 5; c++) {
+                  const u = nextGrid[r][c];
+                  if (u && (u.faction === 'US' || u.faction === 'ARVN')) {
+                    u.frozenTurns = 2;
+                    addLog(`Enemy Surround & Isolate: Allied ${u.name} frozen for 1 turn.`, 'ORDER');
+                    found = true;
+                    break;
+                  }
+                }
+                if (found) break;
               }
+            } else if (orderId === 'nva_order_loi_keu_goi') {
+              nextGrid = nextGrid.map(row => row.map(u => {
+                if (u && (u.faction === 'NVA' || u.faction === 'VC')) {
+                  const currentBase = u.baseAtk ?? CARD_DATABASE.find((cd) => cd.id === u.id)?.atk ?? u.atk;
+                  return { 
+                    ...u, 
+                    baseAtk: currentBase + 1,
+                    atk: currentBase + 1, 
+                    def: u.def + 1, 
+                    maxDef: u.maxDef + 1 
+                  };
+                }
+                return u;
+              }));
+              addLog(`Enemy Emulation Appeal: All active friendly PAVN/VC fighters awarded +1 ATK & +1 DEF.`, 'ORDER');
+            } else if (orderId === 'nva_order_xe_doc') {
+              let drawnCount = 0;
+              while (drawnCount < 2 && currentOppDeck.length > 0) {
+                const drawn = currentOppDeck.shift()!;
+                currentHand.push(drawn);
+                drawnCount++;
+              }
+              setOpponentDeckRemaining(currentOppDeck);
+              setOpponentHand([...currentHand]);
+              addLog(`Enemy Truong Son Drive: Dispatched 2 logistics draws to hand.`, 'ORDER');
+            } else if (orderId === 'nva_trap_amber') {
+              setActiveTraps((traps) => [...traps, { faction: 'NVA', cardId: 'nva_trap_amber' }]);
+              addLog(`Enemy Amber Trap primed.`, 'ORDER');
+            } else if (orderId === 'vc_order_vuon_khong') {
+              let found = false;
+              for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 5; c++) {
+                  const u = nextGrid[r][c];
+                  if (u && (u.faction === 'VC' || u.faction === 'NVA') && u.def < u.maxDef) {
+                    const originalCard = CARD_DATABASE.find(item => item.id === u.id);
+                    if (originalCard && currentHand.length < 9) {
+                      currentHand.push(originalCard);
+                      setOpponentHand([...currentHand]);
+                      nextGrid[r][c] = null;
+                      addLog(`Enemy Scorched Earth: recalled damaged guerrilla ${u.name} back to operational hand.`, 'ORDER');
+                      found = true;
+                      break;
+                    }
+                  }
+                }
+                if (found) break;
+              }
+            } else if (orderId === 'vc_order_dia_dao') {
+              let found = false;
+              for (let r = 1; r >= 0; r--) {
+                for (let c = 0; c < 5; c++) {
+                  if (!nextGrid[r][c]) {
+                     nextGrid[r][c] = {
+                       id: 'vc_guerrilla_cell',
+                       name: 'Local Guerrilla Cell',
+                       faction: 'VC',
+                       k: 0,
+                       o: 3,
+                       atk: 2,
+                       def: 1,
+                       maxDef: 1,
+                       type: 'Unit',
+                       rarity: 'Common',
+                       ability: 'Ambush: First-strike on friendly ground engagements.',
+                       artworkKeyword: 'vc_guerrilla',
+                       instanceId: `spawn-tunnel-ai-${Date.now()}-${c}`,
+                       hasMovedOrAttackedThisTurn: true,
+                       unitType: 'Infantry',
+                       camouflage: false,
+                       frozenTurns: 0,
+                       armor: 0,
+                       isAmphibious: false,
+                     };
+                     addLog(`Enemy Cu Chi Tunnel Transport: deployed Guerrilla Cell inside lane ${c + 1}.`, 'ORDER');
+                     found = true;
+                     break;
+                  }
+                }
+                if (found) break;
+              }
+            } else if (orderId === 'us_order_hamlet') {
+              setOpponentHQArmor((a) => a + 4);
+              addLog(`Enemy casted Fortified Hamlet Program: Enemy HQ base secured +4 Armor.`, 'ORDER');
+            } else if (orderId === 'us_order_logistics') {
+              aiKredits += 3;
+              setOpponentKredits(aiKredits);
+              addLog(`Enemy casted Logistical Superiority: Secured +3 temporary Kredits.`, 'ORDER');
+            } else if (orderId === 'us_order_briefing') {
+              if (playerHand.length > 0) {
+                const discardedIdx = Math.floor(Math.random() * playerHand.length);
+                const discarded = playerHand[discardedIdx];
+                setPlayerHand((hand) => {
+                  const next = [...hand];
+                  next.splice(discardedIdx, 1);
+                  return next;
+                });
+                addLog(`Enemy Intelligence Briefing: Leaked intelligence! You discarded ${discarded.name}.`, 'ORDER');
+              }
+            } else if (orderId === 'us_order_chopper') {
+              let found = false;
+              for (let c = 0; c < 5; c++) {
+                if (!nextGrid[1][c]) {
+                  nextGrid[1][c] = {
+                    id: 'spaw_helitroop',
+                    name: '1st Cav Heli-Troop',
+                    faction: 'US',
+                    k: 0,
+                    o: 1,
+                    atk: 2,
+                    def: 2,
+                    maxDef: 2,
+                    type: 'Unit',
+                    unitType: 'Infantry',
+                    rarity: 'Common',
+                    ability: 'Heli Dropped tactical backup unit.',
+                    artworkKeyword: 'screaming_eagles',
+                    instanceId: `spawn-chopper-ai-${Date.now()}-${c}`,
+                    hasMovedOrAttackedThisTurn: true,
+                    camouflage: false,
+                    frozenTurns: 0,
+                    armor: 0,
+                    isAmphibious: false,
+                  };
+                  addLog(`Enemy Operation Chopper: deployed Heli-troop inside Line 2, Lane ${c + 1}.`, 'ORDER');
+                  found = true;
+                  break;
+                }
+              }
+            } else if (orderId === 'us_order_airstrike') {
+              let bestCol = 0;
+              let maxFriendlyCount = -1;
+              for (let c = 0; c < 5; c++) {
+                let count = 0;
+                for (let r = 0; r < 3; r++) {
+                  const u = nextGrid[r][c];
+                  if (u && (u.faction === 'NVA' || u.faction === 'VC')) count++;
+                }
+                if (count > maxFriendlyCount) {
+                  maxFriendlyCount = count;
+                  bestCol = c;
+                }
+              }
+              for (let r = 0; r < 3; r++) {
+                const u = nextGrid[r][bestCol];
+                if (u && (u.faction === 'NVA' || u.faction === 'VC')) {
+                  u.def -= 2;
+                  if (u.def <= 0) {
+                    addLog(`Guerrilla ${u.name} in lane ${bestCol + 1} was eliminated in Airstrike.`, 'DEATH');
+                    nextGrid[r][bestCol] = null;
+                  } else {
+                    addLog(`Guerrilla ${u.name} in lane ${bestCol + 1} struck for 2 damage in Airstrike.`, 'ORDER');
+                  }
+                }
+              }
+              addLog(`Enemy Napalm Strike support leveled Column ${bestCol + 1}!`, 'ORDER');
+            } else if (orderId === 'arvn_order_binh_dinh') {
+              let found = false;
+              for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 5; c++) {
+                  const u = nextGrid[r][c];
+                  if (u && u.faction === 'ARVN') {
+                    u.def += 2;
+                    u.maxDef += 2;
+                    addLog(`Enemy Pacification Scheme: ARVN ${u.name} secured +2 DEF.`, 'ORDER');
+                    found = true;
+                    break;
+                  }
+                }
+                if (found) break;
+              }
+              if (currentOppDeck.length > 0) {
+                const drawn = currentOppDeck.shift()!;
+                currentHand.push(drawn);
+                setOpponentDeckRemaining(currentOppDeck);
+                setOpponentHand([...currentHand]);
+              }
+            } else if (orderId === 'arvn_order_tong_dong_vien') {
+              nextGrid = nextGrid.map(row => row.map(u => {
+                if (u && u.faction === 'ARVN') return { ...u, def: u.maxDef };
+                return u;
+              }));
+              addLog(`Enemy General Mobilization: All deployed friendly ARVN divisions healed.`, 'ORDER');
             }
 
             nextGrid = applyAuraBuffs(nextGrid);
-            setGrid([...nextGrid]);
+            setGrid(nextGrid.map((row) => [...row]));
+            await new Promise((res) => setTimeout(res, 1000));
+          }
+        }
+      }
+
+      // Step C: Action already deployed opponent units on the field
+      const enemyBattalions: { r: number; c: number }[] = [];
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 5; c++) {
+          const u = nextGrid[r][c];
+          const isEnemyUnit = u && opponentSideFactions.includes(u.faction) && u.id !== 'hq_opponent';
+          if (isEnemyUnit) {
+            enemyBattalions.push({ r, c });
+          }
+        }
+      }
+
+      // Sort battalions from bottom-to-top so units closest to row 2 (Player HQ) operate first!
+      enemyBattalions.sort((a, b) => b.r - a.r);
+
+      for (const pos of enemyBattalions) {
+        if (playerHQRef.current <= 0 || opponentHQRef.current <= 0) return;
+        
+        const u = nextGrid[pos.r][pos.c];
+        if (!u) continue;
+        
+        const isTank = u.unitType === 'Tank';
+        const canAct = isTank ? (!u.hasMovedThisTurn || !u.hasAttackedThisTurn) : !u.hasMovedOrAttackedThisTurn;
+        if (!canAct || u.frozenTurns > 0) {
+          if (u.frozenTurns > 0) {
+            nextGrid[pos.r][pos.c] = { ...u, frozenTurns: Math.max(0, u.frozenTurns - 1) };
+          }
+          continue;
+        }
+
+        if (aiKredits >= u.o) {
+          // Action decision logic
+          
+          // 1. Can we directly strike the Player HQ?
+          // Player HQ is at Row 2, Col 2.
+          const isDirectAbovePlayerHQ = pos.r === 1 && pos.c === 2;
+          const isNearPlayerHQ = pos.r >= 1 && Math.abs(pos.c - 2) <= 1;
+
+          if (isDirectAbovePlayerHQ || (u.unitType === 'Aircraft' && isNearPlayerHQ) || (u.unitType === 'Artillery' && pos.c === 2)) {
+            // Blast player Command base!
+            sound.playExplosion();
+            const damage = u.atk;
+            setPlayerHQ((v) => Math.max(0, v - damage));
+            aiKredits -= u.o;
+            setOpponentKredits(aiKredits);
+            addLog(`BASE CONTACT! Enemy ${u.name} shelled player HQ base for ${damage} damage!`, 'HQ');
+            
+            nextGrid[pos.r][pos.c] = { ...u, hasAttackedThisTurn: true, hasMovedOrAttackedThisTurn: true };
+            setGrid(nextGrid.map((row) => [...row]));
+            await new Promise((res) => setTimeout(res, 1000));
+            continue;
+          }
+
+          // 2. Can we attack any player infantry/tanks blocking directly below?
+          let attackTarget: { r: number; c: number } | null = null;
+          
+          const rowBelow = pos.r + 1;
+          if (rowBelow <= 2) {
+            const pot = nextGrid[rowBelow][pos.c];
+            if (pot && (playerSideFactions.includes(pot.faction) || pot.id === 'hq_player')) {
+              // Camouflage check
+              const isRanged = u.unitType === 'Aircraft' || u.unitType === 'Artillery';
+              if (!(pot.camouflage && isRanged)) {
+                attackTarget = { r: rowBelow, c: pos.c };
+              }
+            }
+          }
+
+          // Artillery: check entire column
+          if (u.unitType === 'Artillery' && !attackTarget) {
+            for (let rowIdx = pos.r + 1; rowIdx <= 2; rowIdx++) {
+              const pot = nextGrid[rowIdx][pos.c];
+              if (pot && playerSideFactions.includes(pot.faction)) {
+                if (!pot.camouflage) {
+                  attackTarget = { r: rowIdx, c: pos.c };
+                  break;
+                }
+              }
+            }
+          }
+
+          // Air planes: attack any friendly target found
+          if (u.unitType === 'Aircraft' && !attackTarget) {
+            for (let r = 2; r >= 0; r--) {
+              for (let c = 0; c < 5; c++) {
+                const pot = nextGrid[r][c];
+                if (pot && playerSideFactions.includes(pot.faction)) {
+                  if (!pot.camouflage) {
+                    attackTarget = { r, c };
+                    break;
+                  }
+                }
+              }
+              if (attackTarget) break;
+            }
+          }
+
+          if (attackTarget) {
+            const friendlyUnit = nextGrid[attackTarget.r][attackTarget.c];
+            if (friendlyUnit) {
+              sound.playGunshot();
+              aiKredits -= u.o;
+              setOpponentKredits(aiKredits);
+
+              if (friendlyUnit.id === 'hq_player') {
+                setPlayerHQ((v) => Math.max(0, v - u.atk));
+                addLog(`DIRECT IMPACT! Enemy ${u.name} slammed player HQ for ${u.atk} damage.`, 'HQ');
+              } else {
+                // Combat Resolver
+                const attacker = { ...u, camouflage: false };
+                const defender = { ...friendlyUnit };
+
+                resolveCombatEngagement(attacker, defender, pos, attackTarget, nextGrid, false);
+              }
+
+              nextGrid = applyAuraBuffs(nextGrid);
+              setGrid(nextGrid.map((row) => [...row]));
+              await new Promise((res) => setTimeout(res, 1000));
+              continue;
+            }
+          }
+
+          // 3. Walk forward downwards if cell below is empty
+          const nextRow = pos.r + 1;
+          if (nextRow <= 2 && !nextGrid[nextRow][pos.c]) {
+            sound.playDeploy();
+            const isTank = u.unitType === 'Tank';
+            const movingUnit = { 
+              ...u, 
+              hasMovedThisTurn: true,
+              hasMovedOrAttackedThisTurn: !isTank 
+            };
+            nextGrid[nextRow][pos.c] = movingUnit;
+            nextGrid[pos.r][pos.c] = null;
+            aiKredits -= u.o;
+            setOpponentKredits(aiKredits);
+            addLog(`Enemy ${u.name} advanced to Sector Row ${nextRow + 1}, Lane ${pos.c + 1}.`, 'MOVE');
+
+            // Positional/Move triggers check for AI (Punji, Satchel charge...)
+            checkMoveTriggers(nextRow, pos.c, movingUnit, nextGrid, false);
+
+            nextGrid = applyAuraBuffs(nextGrid);
+            setGrid(nextGrid.map((row) => [...row]));
             await new Promise((res) => setTimeout(res, 1000));
             continue;
           }
         }
-
-        // 3. Walk forward downwards if cell below is empty
-        const nextRow = pos.r + 1;
-        if (nextRow <= 2 && !nextGrid[nextRow][pos.c]) {
-          sound.playDeploy();
-          nextGrid[nextRow][pos.c] = { ...u, hasMovedOrAttackedThisTurn: true };
-          nextGrid[pos.r][pos.c] = null;
-          aiKredits -= u.o;
-          setOpponentKredits(aiKredits);
-          addLog(`Enemy ${u.name} advanced to Sector Row ${nextRow + 1}, Lane ${pos.c + 1}.`, 'MOVE');
-          nextGrid = applyAuraBuffs(nextGrid);
-          setGrid([...nextGrid]);
-          await new Promise((res) => setTimeout(res, 1000));
-        }
+      }
+    } catch (err) {
+      console.error("Opponent AI turn error: ", err);
+    } finally {
+      // Step D: End Opponent turn, start player turn!
+      if (playerHQRef.current <= 0 || opponentHQRef.current <= 0) {
+        setBattlePhase('gameover');
+      } else {
+        setBattlePhase('deploy');
+        startNextTurn(faction);
       }
     }
-
-    // Step D: End Opponent turn, start player turn!
-    startNextTurn('USA');
   };
 
   // RENDER SECTOR
   const isPlayerUSA = faction === 'USA';
-  
+
   // Dynamic Player and Opponent Profile Info as per KARDs and Vietnamese avoidance rule
   const playerProfile = isPlayerUSA 
     ? { name: 'Gen. Westmoreland', flag: '🇺🇸', role: 'ALLIED HQ', gradient: 'radial-gradient(circle, #386641 0%, #112a14 100%)', textCol: 'text-emerald-450' }
@@ -1555,7 +2769,9 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     : { name: 'Gen. Westmoreland', flag: '🇺🇸', role: 'ALLIED HQ', gradient: 'radial-gradient(circle, #386641 0%, #112a14 100%)', textCol: 'text-emerald-400' };
 
   return (
-    <div className="relative w-full h-screen max-h-screen flex flex-col items-center bg-stone-950 font-mono text-xs overflow-hidden select-none p-2 justify-between">
+    <div 
+      className="relative w-full h-screen max-h-screen flex flex-col items-center bg-stone-900 font-mono text-xs overflow-hidden select-none p-2 justify-between"
+    >
       {/* MULLIGAN SCREEN */}
       {showMulligan && (
         <MulliganOverlay
@@ -1665,13 +2881,13 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 </span>
                 <span className="text-stone-700 text-xs font-mono">/</span>
                 <span className="text-xs font-bold font-mono text-stone-500">
-                  {maxKredits}
+                  {opponentMaxKredits}
                 </span>
               </div>
               
               {/* Energy indicator bits */}
               <div className="flex gap-0.5 mt-1.5 justify-center max-w-full flex-wrap">
-                {Array.from({ length: maxKredits }).map((_, id) => (
+                {Array.from({ length: opponentMaxKredits }).map((_, id) => (
                   <div key={id} className={`w-2 h-1.5 rounded-sm ${id < opponentKredits ? 'bg-red-500 shadow border border-red-405' : 'bg-stone-950 border border-stone-850'}`} />
                 ))}
               </div>
@@ -1707,13 +2923,13 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 </span>
                 <span className="text-stone-700 text-xs font-mono">/</span>
                 <span className="text-xs font-bold font-mono text-stone-500">
-                  {maxKredits}
+                  {playerMaxKredits}
                 </span>
               </div>
               
               {/* Energy indicator bits */}
               <div className="flex gap-0.5 mt-1.5 justify-center max-w-full flex-wrap">
-                {Array.from({ length: maxKredits }).map((_, id) => (
+                {Array.from({ length: playerMaxKredits }).map((_, id) => (
                   <div key={id} className={`w-2 h-1.5 rounded-sm ${id < playerKredits ? 'bg-emerald-500 shadow border border-emerald-405' : 'bg-stone-950 border border-stone-850'}`} />
                 ))}
               </div>
@@ -1741,11 +2957,11 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                   </span>
                   <span className="text-stone-700 text-[8px] font-mono leading-none">/</span>
                   <span className="text-[8px] font-bold text-stone-500 font-mono leading-none">
-                    {maxKredits}
+                    {opponentMaxKredits}
                   </span>
                 </div>
                 <div className="flex gap-0.5 mt-0.5">
-                  {Array.from({ length: Math.min(10, maxKredits) }).map((_, id) => (
+                  {Array.from({ length: Math.min(10, opponentMaxKredits) }).map((_, id) => (
                     <div key={id} className={`w-1.5 h-1 rounded-sm ${id < opponentKredits ? 'bg-red-500 shadow' : 'bg-stone-950'}`} />
                   ))}
                 </div>
@@ -1756,18 +2972,18 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
             <div className="flex flex-col items-center shrink-0 px-2 border-x border-stone-800">
               <button
                 onClick={() => {
-                  if (currentTurnOwner === 'USA' && battlePhase === 'deploy') {
+                  if (currentTurnOwner === faction && battlePhase === 'deploy') {
                     setSelectedBoardUnit(null);
                     setSelectedOrderCard(null);
-                    setCurrentTurnOwner('NVA');
                     setBattlePhase('resolve');
-                    executeOpponentAITurn();
+                    const oppFaction = faction === 'USA' ? 'NVA' : 'USA';
+                    startNextTurn(oppFaction);
                   }
                 }}
-                disabled={currentTurnOwner !== 'USA' || battlePhase !== 'deploy'}
+                disabled={currentTurnOwner !== faction || battlePhase !== 'deploy'}
                 className="px-3 py-1.5 border border-stone-100 bg-stone-950 font-sans font-extrabold text-stone-100 uppercase text-[9px] tracking-widest duration-300 hover:bg-stone-100 hover:text-stone-950 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed leading-none shadow relative active:scale-95 transition-all rounded"
               >
-                {currentTurnOwner === 'USA' ? 'END TURN' : 'ENEMY TURN'}
+                {currentTurnOwner === faction ? 'END TURN' : 'ENEMY TURN'}
               </button>
             </div>
 
@@ -1783,11 +2999,11 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                   </span>
                   <span className="text-stone-700 text-[8px] font-mono leading-none">/</span>
                   <span className="text-[8px] font-bold text-stone-500 font-mono leading-none">
-                    {maxKredits}
+                    {playerMaxKredits}
                   </span>
                 </div>
                 <div className="flex gap-0.5 mt-0.5 justify-end">
-                  {Array.from({ length: Math.min(10, maxKredits) }).map((_, id) => (
+                  {Array.from({ length: Math.min(10, playerMaxKredits) }).map((_, id) => (
                     <div key={id} className={`w-1.5 h-1 rounded-sm ${id < playerKredits ? 'bg-emerald-400 shadow' : 'bg-stone-950'}`} />
                   ))}
                 </div>
@@ -1801,10 +3017,10 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           {/* TACTICAL GRID AND FIELD (WOOD TABLE SKIN) */}
           <div 
             className="flex-grow border border-stone-850 rounded-xl p-2.5 relative shadow-2xl overflow-hidden bg-cover bg-center flex flex-col justify-stretch min-h-0 h-[48vh] sm:h-[55vh] lg:h-[62vh]"
-            style={{ backgroundImage: "url('/src/assets/images/battlefield_table_1781640579159.jpg')" }}
+            style={{ backgroundImage: `url(${tableBg})` }}
           >
             {/* Grungy war-room overlays */}
-            <div className="absolute inset-0 bg-stone-950/45 mix-blend-multiply pointer-events-none z-0" />
+            <div className="absolute inset-0 bg-stone-950/40 pointer-events-none z-0 backdrop-blur-[1px]" />
             <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 via-transparent to-stone-950/60 pointer-events-none z-0" />
 
             {/* Vertical 3-Lines Grid representation */}
@@ -1840,21 +3056,23 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                         let isEligibleAttack = false;
 
                         if (selectedBoardUnit) {
-                          const u = grid[selectedBoardUnit.r][selectedBoardUnit.c];
+                          const u = grid?.[selectedBoardUnit.r]?.[selectedBoardUnit.c];
                           if (u && playerKredits >= u.o) {
                             if (!slot) {
-                              isEligibleMove = selectedBoardUnit.c === c && (r === selectedBoardUnit.r - 1 || r === selectedBoardUnit.r + 1);
+                              const rowDiff = Math.abs(r - selectedBoardUnit.r);
+                              const colDiff = Math.abs(c - selectedBoardUnit.c);
+                              isEligibleMove = rowDiff <= 1 && colDiff <= 1 && (rowDiff !== 0 || colDiff !== 0);
                             } else {
-                              const isEnemy = slot.faction === 'NVA' || slot.faction === 'VC' || slot.id === 'hq_opponent';
+                              const isEnemy = opponentSideFactions.includes(slot.faction) || slot.id === 'hq_opponent';
                               if (isEnemy) {
-                                if (u.isAir) {
+                                if (u.unitType === 'Aircraft' || u.unitType === 'Artillery') {
                                   isEligibleAttack = true;
-                                } else if (u.isArtillery) {
-                                  isEligibleAttack = selectedBoardUnit.c === c;
+                                } else if (slot.id === 'hq_opponent') {
+                                  isEligibleAttack = selectedBoardUnit.r === 1;
                                 } else {
                                   const rDiff = Math.abs(selectedBoardUnit.r - r);
                                   const cDiff = Math.abs(selectedBoardUnit.c - c);
-                                  isEligibleAttack = (rDiff <= 1 && cDiff === 0) || (cDiff <= 1 && rDiff === 0);
+                                  isEligibleAttack = (rDiff <= 1 && cDiff <= 1);
                                 }
                               }
                             }
@@ -1928,6 +3146,18 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                               </div>
                             )}
 
+                            {/* Shockwave Stomp Effect on newly deployed cells */}
+                            {lastDeployedCell?.r === r && lastDeployedCell?.c === c && (
+                              <div 
+                                className={`absolute inset-0 pointer-events-none rounded-lg border-2 z-30 animate-ping opacity-90 ${
+                                  lastDeployedCell.isPlayer 
+                                    ? 'border-emerald-500 bg-emerald-500/10' 
+                                    : 'border-red-500 bg-red-500/10'
+                                }`} 
+                                style={{ animationDuration: '0.8s' }}
+                              />
+                            )}
+                            
                             {/* Attack Crosshair Overlays */}
                             {isEligibleAttack && (
                               <div className="absolute inset-0 bg-red-950/30 flex flex-col items-center justify-center pointer-events-none select-none rounded-lg">
@@ -1951,24 +3181,35 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
             
             {/* The cards overlapping fan */}
             <div className="flex justify-center -space-x-12 hover:-space-x-6 transition-all duration-300 items-stretch h-full flex-grow py-1 max-w-full">
-              {playerHand.map((card, idx) => (
-                <div
-                  key={`${card.id}-${idx}`}
-                  onPointerDown={(e) => handlePointerDownHand(e, card)}
-                  className="relative flex-shrink-0 h-full aspect-[3/4.2] transform transition-all duration-350 hover:scale-115 hover:-translate-y-5 hover:z-40 focus:outline-none touch-none"
-                  style={{
-                    transform: `rotate(${(idx - (playerHand.length - 1) / 2) * 2}deg) translateY(${Math.abs(idx - (playerHand.length - 1) / 2) * 1.5}px)`
-                  }}
-                >
-                  {renderCard(card, false, selectedOrderCard?.id === card.id)}
-                </div>
-              ))}
+              <AnimatePresence>
+                {playerHand.map((card, idx) => {
+                  const angle = (idx - (playerHand.length - 1) / 2) * 25 / (playerHand.length || 1);
+                  const translateY = Math.abs(idx - (playerHand.length - 1) / 2) * 2;
 
-              {playerHand.length === 0 && (
-                <div className="text-center py-6 w-full text-stone-600 font-semibold tracking-wider font-mono text-[9px] uppercase border border-dashed border-stone-850 rounded-xl bg-stone-900/20">
-                  HAND EMPTY. EXHAUSTED LOGISTICS SUPPLY CHANNELS.
-                </div>
-              )}
+                  return (
+                    <motion.div
+                      key={`${card.id}-${idx}`}
+                      onPointerDown={(e) => handlePointerDownHand(e, card)}
+                      initial={{ x: 120, y: 250, rotate: 18, scale: 0.35, opacity: 0 }}
+                      animate={{ x: 0, y: translateY, rotate: angle, scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.85, opacity: 0, y: -100 }}
+                      whileHover={{ 
+                        scale: 1.18, 
+                        y: -32, 
+                        rotate: 0,
+                        zIndex: 50, 
+                        transition: { type: 'spring', stiffness: 450, damping: 20 } 
+                      }}
+                      transition={{ type: 'spring', stiffness: 130, damping: 16 }}
+                      className="relative flex-shrink-0 h-full aspect-[3/4.2] focus:outline-none touch-none cursor-pointer"
+                    >
+                      {renderCard(card, false, selectedOrderCard?.id === card.id)}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+
+              {playerHand.length === 0 && null}
             </div>
           </div>
 
@@ -2004,18 +3245,18 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
           <div className="w-full flex justify-center shrink-0">
             <button
               onClick={() => {
-                if (currentTurnOwner === 'USA' && battlePhase === 'deploy') {
+                if (currentTurnOwner === faction && battlePhase === 'deploy') {
                   setSelectedBoardUnit(null);
                   setSelectedOrderCard(null);
-                  setCurrentTurnOwner('NVA');
                   setBattlePhase('resolve');
-                  executeOpponentAITurn();
+                  const oppFaction = faction === 'USA' ? 'NVA' : 'USA';
+                  startNextTurn(oppFaction);
                 }
               }}
-              disabled={currentTurnOwner !== 'USA' || battlePhase !== 'deploy'}
-              className="w-full border-3 border-stone-100 bg-stone-950 font-sans font-extrabold text-stone-100 uppercase text-center text-sm py-4 tracking-widest duration-300 hover:bg-stone-100 hover:text-stone-950 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed leading-none shadow-2xl active:scale-95 transition-all"
+              disabled={currentTurnOwner !== faction || battlePhase !== 'deploy'}
+              className="w-full border-3 border-stone-100 bg-stone-950 font-sans font-extrabold text-stone-100 uppercase text-center text-sm py-4 tracking-widest duration-300 hover:bg-stone-100 hover:text-stone-950 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed leading-none shadow-2xl active:scale-95 transition-all animate-pulse"
             >
-              END TURN
+              {currentTurnOwner === faction ? 'END TURN' : 'ENEMY TURN'}
             </button>
           </div>
 
@@ -2093,6 +3334,53 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
         />
       )}
 
+      {/* PLAYED ORDER/COUNTERMEASURE CARD VISUAL OVERLAY */}
+      {playedOrderCard && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto animate-fadeIn cursor-pointer"
+          onClick={() => setPlayedOrderCard(null)}
+        >
+          <div 
+            className="relative p-6 border-3 border-amber-500 bg-stone-900/95 max-w-sm w-full rounded-lg shadow-2xl space-y-4 text-center select-none animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Stamp label */}
+            <div className={`absolute top-2 right-2 text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded border uppercase ${playedOrderCard.isPlayer ? 'text-emerald-500 border-emerald-500' : 'text-rose-500 border-rose-500'}`}>
+              {playedOrderCard.isPlayer ? 'COMMAND DIRECTIVE' : 'OPPOSING COUNTER'}
+            </div>
+
+            <div className="py-2">
+              <span className="text-stone-500 text-[9px] uppercase tracking-wider font-bold">TACTICAL RESOLUTION</span>
+              <h2 className="text-lg font-black text-amber-500 tracking-wider uppercase mt-1">
+                {playedOrderCard.card.name}
+              </h2>
+            </div>
+
+            {/* Simulated document print artwork block */}
+            <div className="w-48 h-28 mx-auto bg-stone-950 border border-stone-800 rounded relative overflow-hidden flex items-center justify-center">
+              <div className="absolute inset-0 opacity-15 grayscale contrast-125" style={{
+                backgroundImage: `url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=300')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }} />
+              <div className="text-[28px] z-10 filter drop-shadow">
+                {playedOrderCard.card.type === 'Countermeasure' ? '⚡' : '📜'}
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-stone-950 rounded border border-stone-850">
+              <p className="text-[9.5px] font-medium leading-relaxed uppercase text-stone-300 font-mono">
+                {playedOrderCard.card.ability}
+              </p>
+            </div>
+
+            <div className="text-[7.5px] text-stone-500 uppercase tracking-widest pt-1">
+              Click anywhere to dismiss...
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MOBILE LOG DIRECTIVE DRAWER / MODAL OVERLAY */}
       {showMobileLogs && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-end justify-center" onClick={() => setShowMobileLogs(false)}>
@@ -2147,19 +3435,15 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
       {/* CUSTOM DRAG / TACTICAL ARROW LAYER */}
       {activeDrag && (
         <div className="fixed inset-0 z-50 pointer-events-none">
-          {/* SVG Tactical Arrow for Board Units */}
-          {activeDrag.sourceType === 'board' && (
+          {/* SVG Tactical Arrow */}
+          {(activeDrag.sourceType === 'board' || (activeDrag.sourceType === 'hand' && (activeDrag.card.type === 'Order' || activeDrag.card.type === 'Countermeasure'))) && (
             <svg className="absolute inset-0 w-full h-full pointer-events-none">
               <defs>
-                <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <polygon points="0 0, 6 3, 0 6" fill="rgba(239, 68, 68, 0.9)" />
+                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+                  <polygon points="0 0, 10 5, 0 10" fill={activeDrag.sourceType === 'hand' ? "#083344" : "#7f1d1d"} />
                 </marker>
                 <filter id="glow">
-                  <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                  <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                  </feMerge>
+                  <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor={activeDrag.sourceType === 'hand' ? "#083344" : "#450a0a"} floodOpacity="0.8"/>
                 </filter>
               </defs>
               <line
@@ -2167,9 +3451,9 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 y1={activeDrag.startY}
                 x2={activeDrag.currentX}
                 y2={activeDrag.currentY}
-                stroke="rgba(239, 68, 68, 0.8)"
-                strokeWidth="4"
-                strokeDasharray="8,4"
+                stroke={activeDrag.sourceType === 'hand' ? "#06b6d4" : "#991b1b"}
+                strokeWidth="7"
+                strokeDasharray="12,6"
                 markerEnd="url(#arrowhead)"
                 filter="url(#glow)"
                 className="animate-pulse"
@@ -2177,8 +3461,8 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
             </svg>
           )}
 
-          {/* Floated Ghost Card for Hand Units */}
-          {activeDrag.sourceType === 'hand' && (
+          {/* Floated Ghost Card for Hand Units (Only for Units) */}
+          {activeDrag.sourceType === 'hand' && activeDrag.card.type === 'Unit' && (
             <div 
               style={{ 
                 position: 'absolute', 

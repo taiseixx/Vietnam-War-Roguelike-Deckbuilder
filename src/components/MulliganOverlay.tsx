@@ -12,21 +12,21 @@ export const MulliganOverlay: React.FC<MulliganOverlayProps> = ({
   initialHand,
   onConfirmMulligan,
 }) => {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
-  const handleToggleCard = (cardId: string) => {
+  const handleToggleCard = (idx: number) => {
     sound.playCardDraw();
-    setSelectedIds((prev) =>
-      prev.includes(cardId)
-        ? prev.filter((id) => id !== cardId)
-        : [...prev, cardId]
+    setSelectedIndices((prev) =>
+      prev.includes(idx)
+        ? prev.filter((i) => i !== idx)
+        : [...prev, idx]
     );
   };
 
   const handleConfirm = () => {
     sound.playRadioStatic();
-    const cardsToSwap = initialHand.filter((card) => selectedIds.includes(card.id));
-    const cardsToKeep = initialHand.filter((card) => !selectedIds.includes(card.id));
+    const cardsToSwap = initialHand.filter((_, idx) => selectedIndices.includes(idx));
+    const cardsToKeep = initialHand.filter((_, idx) => !selectedIndices.includes(idx));
     onConfirmMulligan(cardsToKeep, cardsToSwap);
   };
 
@@ -50,12 +50,12 @@ export const MulliganOverlay: React.FC<MulliganOverlayProps> = ({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6 w-full max-w-5xl px-4 select-none mb-10">
-        {initialHand.map((card) => {
-          const isSelected = selectedIds.includes(card.id);
+        {initialHand.map((card, idx) => {
+          const isSelected = selectedIndices.includes(idx);
           return (
             <div
-              key={card.id}
-              onClick={() => handleToggleCard(card.id)}
+              key={`${card.id}-${idx}`}
+              onClick={() => handleToggleCard(idx)}
               className={`relative cursor-pointer group rounded-lg overflow-hidden border transition-all duration-300 transform ${
                 isSelected
                   ? 'border-amber-500 scale-102 ring-2 ring-amber-500/30'
@@ -130,7 +130,7 @@ export const MulliganOverlay: React.FC<MulliganOverlayProps> = ({
       >
         <span className="tracking-widest">DEPLOY FORCES</span>
         <span className="text-stone-800 text-[10px] bg-amber-200/50 px-1.5 py-0.5 rounded">
-          {selectedIds.length > 0 ? `SWAPPING ${selectedIds.length}` : 'KEEP ALL'}
+          {selectedIndices.length > 0 ? `SWAPPING ${selectedIndices.length}` : 'KEEP ALL'}
         </span>
       </button>
     </div>

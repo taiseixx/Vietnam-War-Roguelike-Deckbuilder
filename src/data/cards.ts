@@ -12,13 +12,14 @@ export const CARD_DATABASE: Card[] = [
     def: 1,
     maxDef: 1,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: 'No specialized abilities. Standard vanguard force.',
     artworkKeyword: 'militia'
   },
   {
     id: 'nva_304th_division',
-    name: '304th Division Regulars',
+    name: '304th Regulars',
     faction: 'NVA',
     k: 2,
     o: 2,
@@ -26,6 +27,7 @@ export const CARD_DATABASE: Card[] = [
     def: 3,
     maxDef: 3,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: '+1 DEF when inside Conflict Zone (Line 3).',
     artworkKeyword: 'regulars'
@@ -40,13 +42,14 @@ export const CARD_DATABASE: Card[] = [
     def: 3,
     maxDef: 3,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Heavy Armor Breakers: Deals +1 ATK vs armored units (Patton Tanks, ACAV squads, Armoured Cav).',
     artworkKeyword: 'steel_division'
   },
   {
     id: 'nva_group_559',
-    name: 'PAVN Transportation Unit (Group 559)',
+    name: 'Group 559 Transport',
     faction: 'NVA',
     k: 1,
     o: 1,
@@ -54,6 +57,7 @@ export const CARD_DATABASE: Card[] = [
     def: 4,
     maxDef: 4,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Ho Chi Minh Trail Logistics: At turn start, reduce the Operation O cost of adjacent friendly units by 1.',
     artworkKeyword: 'logistics'
@@ -68,6 +72,7 @@ export const CARD_DATABASE: Card[] = [
     def: 2,
     maxDef: 2,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Amphibious: Ignores extra movement operation costs in the Conflict Zone (Line 3).',
     artworkKeyword: 'river_boats'
@@ -82,6 +87,7 @@ export const CARD_DATABASE: Card[] = [
     def: 2,
     maxDef: 2,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Infiltration: Can bypass and walk directly through enemy units in the Conflict Zone.',
     artworkKeyword: 'sapper'
@@ -96,6 +102,7 @@ export const CARD_DATABASE: Card[] = [
     def: 4,
     maxDef: 4,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Anti-Air Flak: Deals x2 damage to Helicopters / Aircraft units.',
     artworkKeyword: 'machine_gun'
@@ -110,6 +117,7 @@ export const CARD_DATABASE: Card[] = [
     def: 4,
     maxDef: 4,
     type: 'Unit',
+    unitType: 'Artillery',
     rarity: 'Rare',
     ability: 'Artillery: Executes ranged attacks from Support Line without taking direct retaliation damage.',
     artworkKeyword: 'artillery'
@@ -124,13 +132,14 @@ export const CARD_DATABASE: Card[] = [
     def: 2,
     maxDef: 2,
     type: 'Unit',
+    unitType: 'Aircraft',
     rarity: 'Rare',
     ability: 'Air Supremacy: Attacks and damages an enemy aircraft instantly upon deployment.',
     artworkKeyword: 'jet'
   },
   {
     id: 'nva_command_vanguard',
-    name: 'PAVN High Command Vanguard',
+    name: 'NVA Officers',
     faction: 'NVA',
     k: 4,
     o: 3,
@@ -138,6 +147,7 @@ export const CARD_DATABASE: Card[] = [
     def: 5,
     maxDef: 5,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Elite',
     ability: 'Synergy Aura: Grants +1 ATK & +1 DEF to all deployed friendly PAVN and NVA units.',
     artworkKeyword: 'officer'
@@ -238,6 +248,7 @@ export const CARD_DATABASE: Card[] = [
     def: 3,
     maxDef: 3,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Tactical Advice: Multiplicative Synergy (Adjacent ARVN units receive double ATK).',
     artworkKeyword: 'advisor'
@@ -252,6 +263,7 @@ export const CARD_DATABASE: Card[] = [
     def: 3,
     maxDef: 3,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Guard: Enemies occupying the same layout lines must prioritize attacking this MP unit first.',
     artworkKeyword: 'mp'
@@ -266,13 +278,14 @@ export const CARD_DATABASE: Card[] = [
     def: 4,
     maxDef: 4,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Mine Clearance: On deploy, grant +3 Armor shield to US HQ and clear any enemy traps on its line.',
     artworkKeyword: 'engineers'
   },
   {
     id: 'us_9th_riverines',
-    name: '9th Division Riverines',
+    name: '9th Riverines',
     faction: 'US',
     k: 4,
     o: 1,
@@ -280,13 +293,14 @@ export const CARD_DATABASE: Card[] = [
     def: 3,
     maxDef: 3,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Swamp Operations: Receives +2 ATK when fighting or defending inside the Conflict Zone (Line 3).',
     artworkKeyword: 'us_boats'
   },
   {
     id: 'us_m113_acav',
-    name: 'M113 ACAV Squad',
+    name: 'M113 ACAV',
     faction: 'US',
     k: 4,
     o: 1,
@@ -294,13 +308,14 @@ export const CARD_DATABASE: Card[] = [
     def: 5,
     maxDef: 5,
     type: 'Unit',
+    unitType: 'Tank',
     rarity: 'Uncommon',
     ability: 'Armor Carrier: When destroyed, spawns a 2/2 ACAV Squad Infantry unit on its current tile.',
     artworkKeyword: 'armoured_pc'
   },
   {
     id: 'us_101st_airborne',
-    name: '101st Screaming Eagles',
+    name: '101st Airborne',
     faction: 'US',
     k: 4,
     o: 1,
@@ -308,6 +323,7 @@ export const CARD_DATABASE: Card[] = [
     def: 4,
     maxDef: 4,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Airborne Drop: Can be deployed directly onto the Support Line or Conflict Zone without line delays.',
     artworkKeyword: 'screaming_eagles'
@@ -322,6 +338,7 @@ export const CARD_DATABASE: Card[] = [
     def: 4,
     maxDef: 4,
     type: 'Unit',
+    unitType: 'Aircraft',
     rarity: 'Rare',
     ability: 'Heli Mobile: Costs zero Kredit to move. Can deploy to any empty tile on the battlefield.',
     artworkKeyword: 'huey'
@@ -336,6 +353,7 @@ export const CARD_DATABASE: Card[] = [
     def: 3,
     maxDef: 3,
     type: 'Unit',
+    unitType: 'Aircraft',
     rarity: 'Rare',
     ability: 'Blitz Strike: Can move or attack immediately on the turn it is deployed.',
     artworkKeyword: 'phantom'
@@ -350,13 +368,14 @@ export const CARD_DATABASE: Card[] = [
     def: 5,
     maxDef: 5,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Elite',
     ability: 'Green Berets: On killing an enemy unit, heals to full DEF and gains an extra action link this round.',
     artworkKeyword: 'green_beret'
   },
   {
     id: 'us_m48_patton',
-    name: 'M48 Patton Tank',
+    name: 'M48 Patton',
     faction: 'US',
     k: 6,
     o: 1,
@@ -364,13 +383,14 @@ export const CARD_DATABASE: Card[] = [
     def: 6,
     maxDef: 6,
     type: 'Unit',
+    unitType: 'Tank',
     rarity: 'Elite',
     ability: 'Heavy Steel & Overkill: Excess combat damage is dealt straight to the enemy NVA/VC HQ DEF.',
     artworkKeyword: 'patton_tank'
   },
   {
     id: 'us_order_hamlet',
-    name: 'Strategic Hamlet Program',
+    name: 'Strategic Hamlet',
     faction: 'US',
     k: 3,
     o: 0,
@@ -384,7 +404,7 @@ export const CARD_DATABASE: Card[] = [
   },
   {
     id: 'us_order_logistics',
-    name: 'Logistical Superiority',
+    name: 'Logistics Prep',
     faction: 'US',
     k: 2,
     o: 0,
@@ -398,7 +418,7 @@ export const CARD_DATABASE: Card[] = [
   },
   {
     id: 'us_order_briefing',
-    name: 'Intelligence Briefing',
+    name: 'Intel Briefing',
     faction: 'US',
     k: 1,
     o: 0,
@@ -412,7 +432,7 @@ export const CARD_DATABASE: Card[] = [
   },
   {
     id: 'us_order_chopper',
-    name: 'Operation Chopper (1962)',
+    name: 'Operation Chopper',
     faction: 'US',
     k: 4,
     o: 0,
@@ -464,13 +484,14 @@ export const CARD_DATABASE: Card[] = [
     def: 1,
     maxDef: 1,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Ambush: Always deals damage first (first-strike) when attacked by melee enemy units.',
     artworkKeyword: 'vc_guerrilla'
   },
   {
     id: 'vc_126th_specops',
-    name: '126th Special Forces Unit',
+    name: '126th SpecOps',
     faction: 'VC',
     k: 2,
     o: 2,
@@ -478,13 +499,14 @@ export const CARD_DATABASE: Card[] = [
     def: 2,
     maxDef: 2,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Demolition Strike: On reaching the US Support Line (Line 4), self-destructs and instantly destroys a US Artillery/Air unit on that line.',
     artworkKeyword: 'vc_sapper'
   },
   {
     id: 'vc_7th_reg_artillery',
-    name: 'Regional Artillery - 7th Regiment',
+    name: '7th Reg Artillery',
     faction: 'VC',
     k: 2,
     o: 4,
@@ -492,6 +514,7 @@ export const CARD_DATABASE: Card[] = [
     def: 3,
     maxDef: 3,
     type: 'Unit',
+    unitType: 'Artillery',
     rarity: 'Rare',
     ability: 'Disruptive Shells: Hits target and increases its Operation cost (O) of movement/attack by +1 for 1 turn.',
     artworkKeyword: 'vc_mortar'
@@ -512,7 +535,7 @@ export const CARD_DATABASE: Card[] = [
   },
   {
     id: 'vc_order_dia_dao',
-    name: 'Cu Chi Tunnel Transport',
+    name: 'Cu Chi Tunnel',
     faction: 'VC',
     k: 3,
     o: 0,
@@ -536,13 +559,14 @@ export const CARD_DATABASE: Card[] = [
     def: 2,
     maxDef: 2,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Common',
     ability: 'Guard Alliance: MP-style Guard. Gains +2 DEF bonus if sharing a line with an active US Army unit.',
     artworkKeyword: 'arvn_soldier'
   },
   {
     id: 'arvn_1st_infantry',
-    name: 'ARVN 1st Infantry Division',
+    name: 'ARVN 1st Infantry',
     faction: 'ARVN',
     k: 3,
     o: 1,
@@ -550,13 +574,14 @@ export const CARD_DATABASE: Card[] = [
     def: 4,
     maxDef: 4,
     type: 'Unit',
+    unitType: 'Infantry',
     rarity: 'Uncommon',
     ability: 'Battle Hardened: Permanently gains +1 ATK every time it survives a defensive engagement.',
     artworkKeyword: 'arvn_regulars'
   },
   {
     id: 'arvn_7th_armoured',
-    name: '7th Armoured Cavalry',
+    name: '7th Armored Cav',
     faction: 'ARVN',
     k: 4,
     o: 1,
@@ -564,6 +589,7 @@ export const CARD_DATABASE: Card[] = [
     def: 5,
     maxDef: 5,
     type: 'Unit',
+    unitType: 'Tank',
     rarity: 'Rare',
     ability: 'Escort: Heavy steel armor reduces all ranged and incoming artillery/airstrike damage taken by 1 point.',
     artworkKeyword: 'arvn_apc'
