@@ -7,8 +7,14 @@ import { CampaignState, Faction } from '../types';
 export function safeHydrateCampaignState(savedRaw: string | null): CampaignState | null {
   if (!savedRaw) return null;
   try {
-    const parsed = JSON.parse(savedRaw);
-    if (!parsed || typeof parsed !== 'object') return null;
+    const parsedRaw = JSON.parse(savedRaw);
+    if (!parsedRaw || typeof parsedRaw !== 'object') return null;
+
+    // Support both wrapped metadata versioning payloads and direct object fallbacks
+    let parsed = parsedRaw;
+    if (parsedRaw.version !== undefined && parsedRaw.data && typeof parsedRaw.data === 'object') {
+      parsed = parsedRaw.data;
+    }
 
     // Robust validation check for required structural properties
     const hasFaction = parsed.currentFaction === 'USA' || parsed.currentFaction === 'NVA';
@@ -49,12 +55,18 @@ export function safeHydrateCampaignState(savedRaw: string | null): CampaignState
 const LOCAL_STORAGE_KEY_STATE = 'vwr_campaign_state';
 const LOCAL_STORAGE_KEY_SCREEN = 'vwr_active_screen';
 
-export function saveCampaignState(state: CampaignState, activeScreen: string) {
+export function saveCampaignState(state: CampaignState, activeScreen: string, version: number = 1) {
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY_STATE, JSON.stringify(state));
+    const payload = {
+      version,
+      timestamp: Date.now(),
+      data: state
+    };
+    localStorage.setItem(LOCAL_STORAGE_KEY_STATE, JSON.stringify(payload));
     localStorage.setItem(LOCAL_STORAGE_KEY_SCREEN, activeScreen);
   } catch (error) {
-    console.error("Failed to write state persistent update:", error);
+    // Robust console logs to record failed writes on extreme storage limits without freezing the app lifecycle
+    console.error("Critical: Failed to persist campaign state to localStorage due to write constraints:", error);
   }
 }
 

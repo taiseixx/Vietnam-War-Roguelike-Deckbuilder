@@ -40,11 +40,26 @@ export const DEFAULT_BATTLE_CONTEXT: BattleStateContext = {
 };
 
 // --------------------------------------------------------------------------
-// OPTIMIZED SHALLOW STRUCTURAL CLONING
+// OPTIMIZED SELECTIVE DEEP CLONING
 // --------------------------------------------------------------------------
 export function cloneGrid(grid: Grid): Grid {
   return grid.map((row) =>
-    row.map((unit) => (unit ? { ...unit } : null))
+    row.map((unit) => {
+      if (!unit) return null;
+      return {
+        ...unit,
+        // Deep clone nested effects arrays and action objects to fully isolate mutable parameters
+        combatEffects: unit.combatEffects
+          ? unit.combatEffects.map((e) => ({ ...e, action: { ...e.action } }))
+          : undefined,
+        movementEffects: unit.movementEffects
+          ? unit.movementEffects.map((e) => ({ ...e, action: { ...e.action } }))
+          : undefined,
+        deployEffects: unit.deployEffects
+          ? unit.deployEffects.map((e) => ({ ...e, action: { ...e.action } }))
+          : undefined,
+      };
+    })
   );
 }
 

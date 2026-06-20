@@ -16,7 +16,7 @@ Dự án được xây dựng dựa trên nguyên lý **Clean Architecture** và
 ### 🛡️ Decoupled Combat Engine (SOLID & DRY)
 Động cơ tính toán giao tranh hoàn toàn độc lập và thuần khiết (Pure Engine) được tách biệt khỏi luồng render của React tại mục `src/logic/combatEngine.ts`. 
 - **Không có React State / Hook**: Tất cả các hành vi di chuyển, tác xạ, phản kích, bộc phá sát thương đều là các hàm thuần khiết (Pure Functions) nhận tham số đầu vào và trả ra trạng thái mới rời rạc.
-- **Tối ưu hóa Hiệu năng (Shallow Structural Cloning)**: Loại bỏ triệt để phép sao chép sâu đắt đỏ `JSON.parse(JSON.stringify(grid))` cũ bằng cơ chế **Structural Sharing** (nhân bản mảng hai chiều nông và chỉ nhân bản cục bộ các đơn vị Unit bị thay đổi thuộc tính vật lý). Điều này bảo vệ bộ nhớ đệm và cơ chế dọn rác (Garbage Collector) của Javascript khỏi hiện tượng UI đơ lag khi mô phỏng tìm kiếm nước đi nâng cao.
+- **Tối ưu hóa Hiệu năng (Shallow & Selective Deep Cloning)**: Loại bỏ triệt để phép sao chép sâu đắt đỏ `JSON.parse(JSON.stringify(grid))` cũ bằng cơ chế **Structural Sharing** thông minh (sao chép mảng hai chiều nông, đồng thời nhân bản sâu chọn lọc các mảng hiệu ứng lồng nhau `combatEffects`, `movementEffects`, và `deployEffects`). Cách tiếp cận này giúp cô lập hoàn toàn trạng thái giữa Grid cũ và Grid mới, ngăn ngừa rò rỉ đột biến (mutability leaks) mà vẫn giữ nguyên tốc độ xử lý vượt trội.
 
 ### 🧩 Data-Driven Synergy Schema (Trigger-Condition-Action Model)
 Các hiệp lực tinh nhuệ (Synergies) của 12+ đơn vị quân sự lịch sử (như *Sư Đoàn 320 Thép*, *Đặc công Thủy 126*, *Trận địa Phục kích Punji*, *Xe bọc thép ACAV*) được cấu trúc hóa theo mô hình khai báo Declarative Schema. Thay vì viết hardcode kiểm tra ID thẻ bài rải rác trong UI, engine đọc trực tiếp mảng hiệu ứng động từ `types.ts`:
@@ -57,9 +57,11 @@ export interface CombatEffect {
 Bộ kiểm thử hồi quy gồm **29 ca tác xạ tiêu chuẩn** được xây dựng trong `src/utils/combat_test.ts` nhằm chạy kiểm thử tự động, nhanh chóng mà không cần nạp môi trường trình duyệt JSDOM phức tạp.
 - Sử dụng trực tiếp `tsx` thực thi qua Node.js để chạy kiểm tra độ chính xác của bảng ma trận khắc chế binh chủng (Infantry, Tank, Aircraft, Artillery), các cơ chế giảm sát thương giáp, tính toán bộc phá và sát thương tràn overkill dội thẳng vào HQ.
 
-### 💾 Fail-Safe Persistence Layer (Campaign Persistence)
-Cơ chế tự động lưu trạng thái chiến dịch vào `localStorage` đi kèm bộ lọc Schema Hydration Validator và cơ chế quản lý phiên bản (Save File Versioning) tại `src/logic/campaignPersistence.ts`.
-- Bảo vệ dữ liệu người chơi khỏi các dị chủng dữ liệu lỗi thời (zombie states) do phiên bản phần mềm thay đổi đột ngột. Nếu dữ liệu lưu bị hỏng hoặc thiếu trường cấu trúc rủi ro, validator sẽ tự động khôi phục cấu hình an toàn mặc định thay vì gây sập runtime màn hình.
+### 💾 Safe Persistence Layer & Over-Quota Protections
+Cơ chế tự động lưu tiến trình chiến dịch vào `localStorage` được thiết kế cực kỳ an toàn tại `src/logic/campaignPersistence.ts`:
+- **Đóng gói Dữ liệu Tuần tự (Metadata Versioning Wrapper)**: Lưu trữ trạng thái thông qua lớp cấu trúc bọc gồm `version` quản lý phiên bản và `timestamp`, loại bỏ triệt để lỗi thời dữ liệu (zombie states).
+- **Phòng thủ Trình duyệt Giới hạn / Ẩn danh (Defensive Error Mitigation)**: Quấn tất cả mã hóa lưu trữ trong các khối lệnh `try / catch` tinh tế. Nếu người dùng mở tab ẩn danh (Private Browsing) hoặc dung lượng lưu trữ đầy phát sinh lỗi `QuotaExceededError`, tiến trình game vẫn vận hành mượt mà bình thường thay vì gây sụp hay đóng băng (freeze) luồng kết xuất chính của React.
+- **Tương thích ngược & Cấu chuẩn Hydration (Backward Compatibility & Safe Hydration)**: Hồi phục dữ liệu cũ thông qua bộ kiểm duyệt có hỗ trợ bọc dữ liệu trực tiếp hoặc tự động phục hồi cấu hình an toàn mặc định nếu phát hiện phá vỡ cấu trúc dữ liệu.
 
 ---
 
