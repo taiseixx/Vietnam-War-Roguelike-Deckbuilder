@@ -136,14 +136,112 @@ Tạo hệ thống template SVG tham số hóa (config-driven) để card mới 
 
 ---
 
-## [CR-004] Automated Game Balancing Simulation & Telemetry System
-- **Trạng thái**: Paused
-- **Lý do tạm dừng**: Tạm dừng để dọn dẹp lỗi và tối ưu UI mobile theo lộ trình Milestone 3 của ROADMAP.md.
+## CR-004: Automated Game Balancing Simulation & Telemetry System
 
-## [CR-005] Unified Card Frame & Proportional Viewport Scaling
-- **Trạng thái**: In Progress
-- **Mô tả**: Hợp nhất hiển thị thẻ bài và tối ưu hóa diện tích hiển thị trên mobile bằng giải pháp co giãn đồng dạng.
+**Status**: Paused
+**Priority**: P2
+**Ngày tạo**: 2026-06-20
+**Liên quan**: ROADMAP.md Milestone 3, TDD.md risk table, future BALANCE.md
 
-## [CR-006] Content Pack 2 DLC
-- **Trạng thái**: Planned
-- **Mô tả**: Gói nội dung mở rộng số 1 với 20 thẻ bài mới, dựa hoàn toàn trên Effect khai báo.
+### Mục tiêu
+Xây dựng hệ thống giả lập cân bằng tự động để chạy nhiều trận AI vs AI không cần giao diện, thu thập dữ liệu win-rate, tempo, survivability, card usage, và các outlier về sức mạnh thẻ.
+
+### Scope
+**In scope:**
+- Thiết kế headless simulation runner có thể tái sử dụng combat/deck/campaign primitives hiện có.
+- Ghi nhận telemetry tối thiểu cho card usage, faction win-rate, average turn count, damage output, và survival rate.
+- Tạo baseline cho 42 card Gói 1 trước khi thêm Content Pack 2.
+- Chuẩn bị cấu trúc tài liệu `BALANCE.md` để lưu kết quả chạy mô phỏng và khuyến nghị cân bằng.
+
+**Out of scope:**
+- Không tự động buff/nerf card mà không có review.
+- Không thay thế playtest thủ công.
+- Không thêm analytics/cloud telemetry cho người chơi thật.
+- Không triển khai trước khi các lỗi ổn định UI mobile ưu tiên cao hơn được xử lý.
+
+### Risk & Rollback
+- **Risk**: mô phỏng sai luật có thể tạo dữ liệu cân bằng gây hiểu nhầm.
+- **Giảm risk**: chỉ dùng runner sau khi combat regression tests pass và đối chiếu một số trận mẫu bằng log thủ công.
+- **Rollback**: giữ telemetry là tooling tách biệt; nếu sai, bỏ kết quả mô phỏng mà không ảnh hưởng gameplay runtime.
+
+### Acceptance Criteria
+- [ ] Có runner chạy được tối thiểu 1,000 trận AI vs AI với seed hoặc cấu hình có thể tái lập.
+- [ ] Xuất báo cáo win-rate, turn count, card usage, và outlier cards.
+- [ ] `BALANCE.md` ghi baseline đầu tiên và giải thích cách đọc số liệu.
+- [ ] Không thay đổi chỉ số card chỉ dựa trên simulation mà chưa có review.
+- [ ] `npm run lint` và combat regression tests pass sau khi thêm tooling.
+
+### Lý do tạm dừng
+Tạm dừng để dọn dẹp lỗi và tối ưu UI mobile theo lộ trình Milestone 3 của ROADMAP.md.
+
+---
+
+## CR-005: Unified Card Frame & Proportional Viewport Scaling
+
+**Status**: In Progress
+**Priority**: P0
+**Ngày tạo**: 2026-06-20
+**Liên quan**: ROADMAP.md Milestone 2, BUG-005, `CardFrame.tsx`, `MulliganOverlay.tsx`, `Battlefield.tsx`
+
+### Mục tiêu
+Hợp nhất cách render card qua một khung hiển thị dùng chung và tối ưu trải nghiệm mobile bằng cơ chế scaling theo viewport, tránh tình trạng Mulligan hoặc Battlefield bị kéo dãn, tràn chiều cao, hoặc mất tỉ lệ trong iframe.
+
+### Scope
+**In scope:**
+- Chuẩn hóa card presentation qua `CardFrame.tsx` cho các bề mặt UI cần hiển thị card.
+- Tối ưu helper tính kích thước trong `src/utils/uiHelper.ts` để giữ tỉ lệ card ổn định trên mobile.
+- Sửa layout render của `MulliganOverlay.tsx` và phần render/JSX liên quan trong `Battlefield.tsx` để tránh overflow.
+- Kiểm tra ít nhất hai kích thước mobile trước khi tăng trạng thái verification cho BUG-005.
+
+**Out of scope:**
+- Không thay đổi turn/combat handlers hoặc logic xử lý trận.
+- Không thay đổi dữ liệu card, combat effect, campaign persistence, hoặc AI behavior.
+- Không đánh dấu BUG-005 là `Resolved` nếu chưa đủ quy trình xác nhận.
+
+### Risk & Rollback
+- **Risk**: thay đổi frame dùng chung có thể gây regression visual ở nhiều màn hình.
+- **Giảm risk**: test từng bề mặt card chính, đặc biệt Mulligan và Battlefield mobile.
+- **Rollback**: giới hạn thay đổi vào component/helper UI để có thể revert mà không ảnh hưởng combat state.
+
+### Acceptance Criteria
+- [ ] Card giữ đúng tỉ lệ trên desktop và mobile.
+- [ ] Mulligan không bị stretched hoặc height overflow trong iframe/mobile viewport.
+- [ ] Battlefield render không chồng lấn hoặc tràn chiều cao trên ít nhất hai mobile viewport.
+- [ ] Không sửa handler logic/combat state trong `Battlefield.tsx`.
+- [ ] BUG-005 verification counter được cập nhật đúng quy trình sau khi có bằng chứng test.
+
+---
+
+## CR-006: Content Pack 2 DLC
+
+**Status**: Planned
+**Priority**: P2
+**Ngày tạo**: 2026-06-20
+**Liên quan**: ROADMAP.md Milestone 4, CR-001, CR-003, GDD.md content roadmap
+
+### Mục tiêu
+Thiết kế và triển khai gói nội dung mở rộng đầu tiên với khoảng 20 thẻ bài mới, dựa trên hệ thống effect khai báo sau CR-001 và pipeline art data-driven sau CR-003.
+
+### Scope
+**In scope:**
+- Thiết kế danh sách card mới có vai trò rõ ràng theo faction và archetype.
+- Sử dụng `combatEffects`, `movementEffects`, `deployEffects`, hoặc schema tương đương sau khi CR-001 hoàn tất.
+- Dùng pipeline art data-driven cho card mới thay vì thêm SVG case thủ công.
+- Cập nhật GDD.md/TDD.md khi nội dung hoặc schema đã được xác nhận.
+
+**Out of scope:**
+- Không bắt đầu implement card mới trước khi CR-001 đủ ổn định.
+- Không thêm mechanic yêu cầu hardcode mới trong combat core.
+- Không thay đổi cân bằng Gói 1 như một phần của CR này trừ khi có CR cân bằng riêng.
+
+### Risk & Rollback
+- **Risk**: thêm nhiều card trước khi effect schema ổn định sẽ làm tăng nợ kỹ thuật.
+- **Giảm risk**: chờ CR-001 được xác nhận, sau đó thêm card theo từng nhóm nhỏ có test.
+- **Rollback**: card mới có thể bị feature-flag hoặc loại khỏi pool nếu gây lỗi hoặc mất cân bằng.
+
+### Acceptance Criteria
+- [ ] Danh sách card mới có mô tả faction, rarity, cost, stats, effect, và artwork keyword/config.
+- [ ] Không cần sửa core combat logic để thêm bất kỳ card mới nào.
+- [ ] Card mới render được qua pipeline art data-driven.
+- [ ] Có test hoặc checklist regression cho effect mới.
+- [ ] GDD.md và TDD.md được cập nhật khi nội dung chuyển từ planned sang implementation.

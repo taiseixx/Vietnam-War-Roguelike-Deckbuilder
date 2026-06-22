@@ -810,7 +810,7 @@ Dự án được sinh ra và host trên **Google AI Studio**. Một số config
 |-------|----------|-------|
 | `Battlefield.tsx` quá lớn | Medium | 2200+ dòng — nên tách ra `useGameState`, `useCombatEngine`, `useAIOpponent` hooks |
 | AI Opponent đơn giản | Low | Greedy AI — chưa có pathfinding thực sự hoặc threat assessment |
-| ~~No persistence~~ | ~~Medium~~ | **[CR-002 Solved]** Game state được save an toàn vào localStorage |
+| No persistence verification | Medium | **[CR-002 In Progress]** Campaign persistence đang chờ xác nhận acceptance criteria trong CR.md |
 | Grid hardcoded 3×5 | Low | Grid size không configurable — khó mở rộng nếu cần 5×5 |
 | ~~PropagandaPoster case list~~ | ~~Low~~ | **[CR-003 Mitigated]** Tích hợp Data-driven Pipeline ArtConfig thay vì SVG Hardcoding toàn phần |
 | No unit tests | High | Đã có combat matrices unit tests, nhưng behavior hooks vẫn thiếu |
@@ -818,7 +818,7 @@ Dự án được sinh ra và host trên **Google AI Studio**. Một số config
 
 ### Refactoring Targets (Theo Độ Ưu Tiên)
 
-1. ~~**High**: Thêm `localStorage` persistence cho `campaignState`~~ (Done)
+1. **High**: Thêm `localStorage` persistence cho `campaignState` (CR-002 In Progress - chờ xác nhận acceptance criteria)
 2. **High**: Tách Battlefield thành sub-hooks (`useCombatEngine.ts`, `useAIOpponent.ts`)
 3. **Medium**: Thêm full unit tests cho combat calculation functions 
 4. **Medium**: Cải thiện AI opponent với basic threat scoring

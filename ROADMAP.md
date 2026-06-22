@@ -24,7 +24,7 @@ Mọi chỉnh sửa trong dự án phải tuân thủ luồng tham chiếu phân
 * **Trạng thái**: **ĐANG TIẾN HÀNH (IN PROGRESS)**
 * **Thay đổi kiến trúc liên quan**:
   - [CR-001: Data-driven Combat Synergy System](CR.md#cr-001-data-driven-combat-synergy-system) $\rightarrow$ Đang thực hiện (xem CR.md để biết phần còn thiếu). Cập nhật đặc tả tại [GDD.md Section C11](GDD.md) và [TDD.md Section VIII](TDD.md).
-  - [CR-002: Campaign Persistence (localStorage)](CR.md#cr-002-campaign-persistence-localstorage) $\rightarrow$ Đã chuyển sang `Done`. Cập nhật giải pháp an toàn dữ liệu tại [TDD.md](TDD.md).
+  - [CR-002: Campaign Persistence (localStorage)](CR.md#cr-002-campaign-persistence-localstorage) $\rightarrow$ Đang thực hiện. Chưa chuyển `Done` cho tới khi acceptance criteria được xác nhận trực tiếp.
   - [CR-003: Data-driven Art Pipeline (Temporary Solution)](CR.md#cr-003-data-driven-art-pipeline-temporary-solution) $\rightarrow$ Đã chuyển sang `Done`. Cập nhật cơ chế tối ưu SVG tại [TDD.md](TDD.md).
 * **Kiểm soát chất lượng**:
   - [BUG-001, BUG-002, BUG-003, BUG-004](BUG.md) đã được vá và đang trong thời gian thử thách 5 lượt chat để đóng hoàn toàn.
@@ -35,7 +35,7 @@ Mọi chỉnh sửa trong dự án phải tuân thủ luồng tham chiếu phân
 * **Mục tiêu**: Hợp nhất hiển thị thẻ bài thông qua một Component nguyên tử duy nhất, tối ưu hóa diện tích hiển thị trên mobile bằng giải pháp co giãn đồng dạng (Scale-based viewport).
 * **Trạng thái**: **ĐANG TRIỂN KHAI (IN PROGRESS)**
 * **Thay đổi kiến trúc liên quan**:
-  - `CR-005: Unified Card Frame & Proportional Viewport Scaling` (Đang triển khai - xem [CR.md](CR.md)).
+  - [CR-005: Unified Card Frame & Proportional Viewport Scaling](CR.md#cr-005-unified-card-frame--proportional-viewport-scaling) $\rightarrow$ Đang triển khai.
 * **Kiểm soát chất lượng**:
   - [BUG-005: Mobile Viewport / Iframe Mulligan Stretched & Height Overflow Bug](BUG.md) $\rightarrow$ Fixed - Verification Pending [1/5].
 * **Đặc tả chịu ảnh hưởng**:
@@ -47,7 +47,7 @@ Mọi chỉnh sửa trong dự án phải tuân thủ luồng tham chiếu phân
 * **Mục tiêu**: Xây dựng bộ giả lập không đầu (headless simulator) chạy 1,000 trận đấu AI vs AI tự động để thu thập dữ liệu cân bằng của 42 quân bài Gói 1 và tự động cập nhật nhật ký cân bằng.
 * **Trạng thái**: **TẠM HOÃN (PAUSED - Ưu tiên nâng cao độ ổn định)**
 * **Thay đổi kiến trúc liên quan**:
-  - [CR-004: Automated Game Balancing Simulation](CR.md#cr-004-automated-game-balancing-simulation--telemetry-system) $\rightarrow$ Trạng thái: `Approved` (Tạm dừng để dọn dẹp lỗi và tối ưu UI mobile).
+  - [CR-004: Automated Game Balancing Simulation](CR.md#cr-004-automated-game-balancing-simulation--telemetry-system) $\rightarrow$ Trạng thái: `Paused` (Tạm dừng để dọn dẹp lỗi và tối ưu UI mobile).
 * **Đặc tả chịu ảnh hưởng**:
   - Khởi tạo tài liệu [BALANCE.md](BALANCE.md) để ghi nhận Baseline thực tế của 1,000 trận đấu.
 
@@ -57,7 +57,7 @@ Mọi chỉnh sửa trong dự án phải tuân thủ luồng tham chiếu phân
 * **Mục tiêu**: Phát hành 20 thẻ bài mới, giới thiệu các cơ chế đặc biệt mới dựa hoàn toàn trên hệ thống Effect khai báo đã hoàn thiện ở Milestone 1 mà không cần can thiệp vào core logic code.
 * **Trạng thái**: **LÊN KẾ HOẠCH (PLANNED)**
 * **Thay đổi kiến trúc liên quan**:
-  - Sẽ khởi tạo `CR-006` khi bước vào giai đoạn thiết kế nội dung.
+  - [CR-006: Content Pack 2 DLC](CR.md#cr-006-content-pack-2-dlc) $\rightarrow$ Trạng thái: `Planned` (Sẽ triển khai khi bước vào giai đoạn thiết kế nội dung).
 
 ---
 
